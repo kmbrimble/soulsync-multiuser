@@ -12,6 +12,10 @@ class _FakeDB:
         self._autos = automations
 
     def get_automations(self, profile_id=None):
+        # Default scope is the requesting profile only (Admin) — must not be used.
+        return [a for a in self._autos if a.get('profile_id', 1) == 1]
+
+    def get_all_automations(self):
         return self._autos
 
 
@@ -68,7 +72,7 @@ def test_malformed_then_actions_swallowed():
 
 def test_db_failure_returns_empty():
     class _BrokenDB:
-        def get_automations(self, profile_id=None):
+        def get_all_automations(self):
             raise RuntimeError("db dead")
     assert signals.collect_known_signals(_BrokenDB()) == []
 
@@ -90,3 +94,14 @@ def test_non_signal_then_action_ignored():
          ])},
     ])
     assert signals.collect_known_signals(db) == ['real_sig']
+
+
+def test_every_profiles_signals_collected():
+    db = _FakeDB([
+        {'profile_id': 1, 'trigger_type': 'signal_received', 'trigger_config': json.dumps({'signal_name': 'admin_sig'}), 'then_actions': '[]'},
+        {'profile_id': 2, 'trigger_type': 'signal_received', 'trigger_config': json.dumps({'signal_name': 'k_in'}),
+         'then_actions': json.dumps([{'type': 'fire_signal', 'config': {'signal_name': 'k_out'}}])},
+        {'profile_id': 3, 'trigger_type': 'signal_received', 'trigger_config': json.dumps({'signal_name': 'k_in'}),
+         'then_actions': json.dumps([{'type': 'fire_signal', 'config': {'signal_name': 't_out'}}])},
+    ])
+    assert signals.collect_known_signals(db) == ['admin_sig', 'k_in', 'k_out', 't_out']

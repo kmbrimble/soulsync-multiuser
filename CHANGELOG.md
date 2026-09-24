@@ -10,6 +10,11 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
   Upstream's `build-and-test.yml` (whole-tree `npm run check`, which fails on upstream debt) is left
   untouched and disabled via `gh workflow disable 365957448`. Spec: `tests/test_fork_ci_workflow.py`.
 
+### 2026-09-25 — Signal-name autocomplete suggests every profile's signals
+- `collect_known_signals` now reads `get_all_automations()` (as the engine does since 3e01a165), so
+  the builder autocompletes signal names from all profiles, not just Admin + system. Only caller is
+  `GET /api/automations/blocks`; still deduped and sorted.
+
 ### 2026-09-24 — Deezer Loved tracks
 - **Bug fix (upstream bug):** "My Deezer playlists" was empty for any *private* Deezer profile —
   `api.deezer.com/user/<id>/playlists` and `/playlist/<id>` reject the ARL cookie

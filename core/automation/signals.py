@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 def collect_known_signals(database) -> list[str]:
     """Return sorted, deduped signal names referenced by any saved automation.
 
-    Walks every automation and pulls signal names from both the
+    Walks every profile's automations and pulls signal names from both the
     `signal_received` trigger config and any `fire_signal` then-actions.
     Errors at every layer are swallowed — the autocomplete is best-effort.
     """
     signals: set[str] = set()
     try:
-        for auto in database.get_automations():
+        for auto in database.get_all_automations():
             if auto.get('trigger_type') == 'signal_received':
                 try:
                     tc = json.loads(auto.get('trigger_config') or '{}')
