@@ -537,19 +537,21 @@ class DeezerDownloadClient(DownloadSourcePlugin):
         release-date / track-position handling applies unchanged. None on failure."""
         playlist_id = str(playlist_id)
         songs: list = []
-        total = 0
+        answered = False
         while True:
+            # ponytail: `start` is unverified live; if ignored, a >2000-track list re-reads page 1
+            # until `total` is hit (duplicates). Dedupe / verify the offset param if that shows up.
             res = self._gw_call('playlist.getSongs',
                                 {'PLAYLIST_ID': playlist_id, 'nb': 2000, 'start': len(songs)})
-            page = (res or {}).get('data') or []
-            if not res or not page:
+            if not res:
                 break
-            total = res.get('total', 0)
+            answered = True
+            page = res.get('data') or []
             songs.extend(page)
-            if len(songs) >= total:
+            if not page or len(songs) >= res.get('total', 0):
                 break
-        if not songs:
-            return None
+        if not answered:
+            return None   # gateway failed; an empty (but answered) list is a valid playlist
 
         loved = playlist_id == str((self._user_data or {}).get('LOVEDTRACKS_ID', ''))
         title = 'Loved tracks' if loved else ''

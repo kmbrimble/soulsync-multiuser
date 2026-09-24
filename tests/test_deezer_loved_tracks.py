@@ -143,3 +143,14 @@ def test_public_playlist_does_not_touch_the_gateway(monkeypatch):
                 api=lambda url, **k: _Resp(public) if url.endswith('/playlist/11') else None)
     out = c.get_playlist_tracks('11')
     assert out['name'] == 'Road trip' and out['tracks'][0]['name'] == 'T'
+
+
+def test_empty_loved_list_is_an_empty_playlist_not_an_error():
+    c = _client(lambda m, p: {'total': 0, 'data': []})
+    out = c.get_playlist_tracks('999')
+    assert out['name'] == 'Loved tracks' and out['tracks'] == []
+
+
+def test_gateway_failure_for_a_refused_playlist_is_none():
+    c = _client(lambda m, p: None)
+    assert c.get_playlist_tracks('999') is None
