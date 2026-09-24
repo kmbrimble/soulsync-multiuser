@@ -22460,14 +22460,16 @@ class MusicDatabase:
             logger.error(f"Error creating automation: {e}")
             return None
 
-    def get_automations(self, profile_id: int = 1):
-        """Get all automations for a profile (includes system automations regardless of profile)."""
+    def get_automations(self, profile_id: Optional[int] = 1):
+        """Get all automations for a profile (includes system automations regardless of profile).
+
+        ``profile_id=None`` returns every profile's automations (engine scheduling/events)."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT * FROM automations WHERE profile_id = ? OR is_system = 1 ORDER BY is_system DESC, created_at DESC
-                """, (profile_id,))
+                    SELECT * FROM automations WHERE (? IS NULL OR profile_id = ? OR is_system = 1) ORDER BY is_system DESC, created_at DESC
+                """, (profile_id, profile_id))
                 rows = cursor.fetchall()
                 return [dict(row) for row in rows]
         except Exception as e:

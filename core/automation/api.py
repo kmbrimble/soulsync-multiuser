@@ -100,7 +100,7 @@ def _check_update_cycle(
     if not _has_signal_concern(trigger_type, then_actions):
         return None
 
-    all_autos = database.get_automations()
+    all_autos = database.get_automations(profile_id=None)  # signals cross profiles in the engine
     test_autos = []
     for a in all_autos:
         if a['id'] == automation_id:

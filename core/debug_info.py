@@ -267,7 +267,7 @@ def get_debug_info():
     # Automation count
     try:
         db = get_database()
-        automations = db.get_automations()
+        automations = db.get_automations(profile_id=None)
         info['automations'] = {
             'total': len(automations),
             'enabled': len([a for a in automations if a.get('enabled', False)]),
