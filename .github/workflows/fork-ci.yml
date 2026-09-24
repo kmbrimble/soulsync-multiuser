@@ -86,8 +86,10 @@ jobs:
             exit 0
           fi
           echo "$files"
-          echo "$files" | xargs npx oxfmt --check
-          echo "$files" | xargs npx oxlint --type-check
+          # oxlint ignores .css and oxfmt/oxlint skip ignored paths; without this flag
+          # a change touching only such files fails with "No files found".
+          echo "$files" | xargs npx oxfmt --check --no-error-on-unmatched-pattern
+          echo "$files" | xargs npx oxlint --type-check --no-error-on-unmatched-pattern
 
       - name: Build webui
         run: npm run build

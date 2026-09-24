@@ -37,7 +37,9 @@ worktree, create your own: `uv venv -q -p 3.11 .venv && uv pip install -q -r req
 - `python -m compileall -q api core database services scripts web_server.py wsgi.py beatport_unified_scraper.py`
 - `PYTHONPATH=$PWD python -m pytest -q` (live SoundCloud/YouTube tests are excluded by default
   via `pyproject.toml`; never enable them)
-- WebUI, only if `webui/` changed: `cd webui && npm ci && npm run check && npm run build && npm test`
+- WebUI, only if `webui/` changed: `cd webui && npm ci && npm run build && npm test`, plus
+  `npx oxfmt --check <files> && npx oxlint --type-check <files>` on the `webui/src` files you changed
+  (not `npm run check` — whole-tree, fails on upstream debt; see fork-ci below)
 
 **Runtime:** the full local pytest suite is ~19.5k tests and took 36 min on this container
 (baseline at `ae77a6e`, 24 Sep 2026: 19560 passed, 9 skipped). During the Step 6 fix loop run the
@@ -119,4 +121,6 @@ version-numbering convention is declared yet, so do not invent version numbers.
 
 `git fetch upstream && git merge upstream/main` on a branch, full test run, then fast-forward
 main. Expect conflicts only where fork edits touched upstream files — another reason to keep
-those edits minimal.
+those edits minimal. On a sync branch fork-ci's webui format/lint step diffs against `origin/main`, so
+it also checks every `webui/src` file upstream touched and can go red on upstream's own debt — expected;
+judge it by the build/test steps and the Python job.
