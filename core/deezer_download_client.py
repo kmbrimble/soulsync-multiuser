@@ -384,6 +384,7 @@ class DeezerDownloadClient(DownloadSourcePlugin):
                         'image_url': p.get('picture_medium', ''),
                         'owner': p.get('creator', {}).get('name', ''),
                         'description': p.get('description', ''),
+                        'is_loved_track': bool(p.get('is_loved_track')),
                     })
                 if not data.get('next'):
                     break

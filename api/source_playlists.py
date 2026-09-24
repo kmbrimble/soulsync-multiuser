@@ -2305,13 +2305,16 @@ def get_deezer_arl_playlists():
         # 'Synced' from never, with no 'Needs Sync' arm.
         sync_statuses = _load_sync_status_file()
         playlist_data = []
-        for p in playlists:
+        # Loved tracks first, labelled as such (Deezer titles it "Favourite
+        # tracks"/localised). sorted() is stable, so the rest keep their order.
+        for p in sorted(playlists, key=lambda p: not p.get('is_loved_track')):
             status_info = (sync_statuses.get(f"deezer_arl_{p['id']}")
                            or sync_statuses.get(f"deezer_{p['id']}")
                            or {})
             playlist_data.append({
                 'id': p['id'],
-                'name': p['name'],
+                'name': 'Loved tracks' if p.get('is_loved_track') else p['name'],
+                'is_loved_track': bool(p.get('is_loved_track')),
                 'owner': p.get('owner', ''),
                 'track_count': p.get('track_count', 0),
                 'image_url': p.get('image_url', ''),

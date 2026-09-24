@@ -4,6 +4,14 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-09-24 — Deezer Loved tracks
+- "My Deezer playlists" now lists the profile's Loved (Favourite) tracks first, labelled
+  "Loved tracks", and it syncs like any other playlist through the profile's own ARL. Deezer
+  exposes it as a normal playlist flagged `is_loved_track`; `get_user_playlists()` now keeps
+  that flag. No new sync path, no virtual id, no OAuth `get_saved_tracks()` (nothing calls it).
+- Not done: pasting a `deezer.com/.../loved` URL. The Sync page rejects non-`/playlist/` Deezer
+  URLs client-side and `/api/deezer/playlist/<id>` can't take a URL, so it needs a webui change.
+
 ### 2026-09-24 — Per-profile Deezer ARL
 - Each non-admin profile can set its own Deezer ARL (My Accounts → Deezer). The Sync page's
   "My Deezer playlists" and Discover "Your Artists/Albums" then use *that* account instead of the
