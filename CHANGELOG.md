@@ -5,12 +5,19 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 ## [Unreleased]
 
 ### 2026-09-24 — Deezer Loved tracks
-- "My Deezer playlists" now lists the profile's Loved (Favourite) tracks first, labelled
-  "Loved tracks", and it syncs like any other playlist through the profile's own ARL. Deezer
-  exposes it as a normal playlist flagged `is_loved_track`; `get_user_playlists()` now keeps
-  that flag. No new sync path, no virtual id, no OAuth `get_saved_tracks()` (nothing calls it).
+- **Bug fix (upstream bug):** "My Deezer playlists" was empty for any *private* Deezer profile —
+  `api.deezer.com/user/<id>/playlists` and `/playlist/<id>` reject the ARL cookie
+  ("This user's profile is private"); only the gw-light API honours it. `get_user_playlists()`
+  now lists via gateway `deezer.pageProfile` (public API as fallback) and adds the Loved list from
+  `LOVEDTRACKS_ID`; `get_playlist_tracks()` falls back to gateway `playlist.getSongs` when the
+  public API refuses (private playlists and Loved), reshaped so release dates / track numbers
+  work as before. Public profiles keep using the public path for tracks.
+- "My Deezer playlists" lists the profile's Loved (Favourite) tracks first, labelled
+  "Loved tracks", and it syncs like any other playlist through the profile's own ARL. No new sync
+  path, no virtual id, no OAuth `get_saved_tracks()` (nothing calls it).
 - Not done: pasting a `deezer.com/.../loved` URL. The Sync page rejects non-`/playlist/` Deezer
-  URLs client-side and `/api/deezer/playlist/<id>` can't take a URL, so it needs a webui change.
+  URLs client-side and the `/api/deezer/playlist/<id>` path can't carry a slashed URL, so it
+  needs a webui change.
 
 ### 2026-09-24 — Per-profile Deezer ARL
 - Each non-admin profile can set its own Deezer ARL (My Accounts → Deezer). The Sync page's

@@ -50,6 +50,11 @@ _CHUNK_SIZE = 2048
 _MIN_FILE_SIZE = 100 * 1024
 
 
+def _gw_cover(md5) -> str:
+    """Album cover URL from a gateway ALB_PICTURE hash."""
+    return f"https://cdn-images.dzcdn.net/images/cover/{md5}/250x250-000000-80-0-0.jpg" if md5 else ''
+
+
 def _get_blowfish_key(track_id: str) -> bytes:
     """Derive the Blowfish decryption key for a track."""
     md5_hex = hashlib.md5(str(track_id).encode()).hexdigest()
@@ -351,13 +356,55 @@ class DeezerDownloadClient(DownloadSourcePlugin):
 
     # ─── User Playlists (ARL-authenticated) ─────────────────────
 
+    def _gw_user_playlists(self, user_id) -> list:
+        """Playlists via the gateway — the public API refuses a private profile even
+        with the ARL cookie, the gateway does not. [] if it fails."""
+        params = {'USER_ID': user_id, 'tab': 'playlists', 'nb': 100}
+        page = self._gw_call('deezer.pageProfile', params)
+        if not page:
+            return []   # gateway failed — caller falls back to the public API
+        tab = (page.get('TAB') or {}).get('playlists') or {}
+        items = tab.get('data') or []
+        if len(items) < tab.get('total', 0):
+            params['nb'] = tab['total']   # ponytail: one bigger page, not offset paging (offset param unverified)
+            items = ((self._gw_call('deezer.pageProfile', params) or {}).get('TAB') or {}) \
+                .get('playlists', {}).get('data') or items
+        owner = self._user_data.get('BLOG_NAME', '')
+        out = []
+        loved_id = str(self._user_data.get('LOVEDTRACKS_ID') or '')
+        if loved_id and loved_id != '0':
+            count = (self._gw_call('playlist.getSongs', {'PLAYLIST_ID': loved_id, 'nb': 1}) or {}).get('total', 0)
+            out.append({'id': loved_id, 'name': 'Loved tracks', 'track_count': count, 'image_url': '',
+                        'owner': owner, 'description': '', 'is_loved_track': True})
+        for p in items:
+            pid = str(p.get('PLAYLIST_ID', ''))
+            if not pid or pid == loved_id:
+                continue
+            pic = p.get('PLAYLIST_PICTURE')
+            out.append({
+                'id': pid, 'name': p.get('TITLE', ''), 'track_count': p.get('NB_SONG', 0),
+                'image_url': (f"https://cdn-images.dzcdn.net/images/{p.get('PICTURE_TYPE') or 'playlist'}"
+                              f"/{pic}/250x250-000000-80-0-0.jpg") if pic else '',
+                'owner': owner, 'description': '', 'is_loved_track': False,
+            })
+        return out
+
     def get_user_playlists(self) -> list:
-        """Fetch the authenticated user's playlists via Deezer public API with ARL cookies."""
+        """The authenticated user's playlists: gateway first (works for private
+        profiles), public API with ARL cookies as the fallback."""
         if not self._authenticated or not self._user_data:
             return []
         user_id = self._user_data.get('USER_ID')
         if not user_id:
             return []
+        try:
+            gw = self._gw_user_playlists(user_id)
+        except Exception as e:   # noqa: BLE001 - fall back to the public API
+            logger.warning(f"Deezer gateway playlists failed: {e}")
+            gw = []
+        if gw:
+            logger.info(f"Fetched {len(gw)} user playlists from Deezer (gateway)")
+            return gw
 
         playlists = []
         index = 0
@@ -484,6 +531,46 @@ class DeezerDownloadClient(DownloadSourcePlugin):
         logger.info(f"Fetched {len(albums)} favorite albums from Deezer (ARL)")
         return albums
 
+    def _gw_playlist_as_public(self, playlist_id: str):
+        """(playlist, tracks) for a playlist the public API refused, read via the
+        gateway and reshaped like api.deezer.com objects so get_playlist_tracks'
+        release-date / track-position handling applies unchanged. None on failure."""
+        playlist_id = str(playlist_id)
+        songs: list = []
+        total = 0
+        while True:
+            res = self._gw_call('playlist.getSongs',
+                                {'PLAYLIST_ID': playlist_id, 'nb': 2000, 'start': len(songs)})
+            page = (res or {}).get('data') or []
+            if not res or not page:
+                break
+            total = res.get('total', 0)
+            songs.extend(page)
+            if len(songs) >= total:
+                break
+        if not songs:
+            return None
+
+        loved = playlist_id == str((self._user_data or {}).get('LOVEDTRACKS_ID', ''))
+        title = 'Loved tracks' if loved else ''
+        if not title:
+            info = self._gw_call('playlist.getData', {'PLAYLIST_ID': playlist_id}) or {}
+            title = (info.get('DATA') or info).get('TITLE') or f'Playlist {playlist_id}'
+        tracks = [{
+            'id': s.get('SNG_ID'),
+            'title': s.get('SNG_TITLE', ''),
+            'duration': int(s.get('DURATION') or 0),
+            'artist': {'name': s.get('ART_NAME') or 'Unknown Artist'},
+            'album': {
+                'id': s.get('ALB_ID'),
+                'title': s.get('ALB_TITLE', ''),
+                'cover_medium': _gw_cover(s.get('ALB_PICTURE')),
+            },
+            'track_position': int(s.get('TRACK_NUMBER') or 0) or None,
+        } for s in songs]
+        return {'id': playlist_id, 'title': title, 'nb_tracks': len(tracks),
+                'creator': {'name': (self._user_data or {}).get('BLOG_NAME', '')}}, tracks
+
     def get_playlist_tracks(self, playlist_id: str, progress_cb=None) -> Optional[dict]:
         """Fetch full playlist details with tracks via public API (ARL cookies grant private access)."""
         try:
@@ -491,14 +578,20 @@ class DeezerDownloadClient(DownloadSourcePlugin):
                 f'https://api.deezer.com/playlist/{playlist_id}',
                 timeout=15
             )
-            resp.raise_for_status()
-            data = resp.json()
-            if 'error' in data:
-                logger.error(f"Deezer playlist error: {data['error']}")
-                return None
-
-            total_tracks = data.get('nb_tracks', 0)
-            raw_tracks = data.get('tracks', {}).get('data', [])
+            data = resp.json() if resp is not None and resp.ok else None
+            if not data or 'error' in data:
+                # Private playlists and the Loved list refuse the public API even
+                # with the ARL cookie; the gateway does honour it.
+                logger.info(f"Deezer public API refused playlist {playlist_id}; trying gateway")
+                gw = self._gw_playlist_as_public(playlist_id)
+                if gw is None:
+                    logger.error(f"Deezer playlist error: {(data or {}).get('error')}")
+                    return None
+                data, raw_tracks = gw
+                total_tracks = data['nb_tracks']
+            else:
+                total_tracks = data.get('nb_tracks', 0)
+                raw_tracks = data.get('tracks', {}).get('data', [])
 
             # Paginate if needed
             while len(raw_tracks) < total_tracks:
