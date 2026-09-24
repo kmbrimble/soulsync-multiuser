@@ -83,3 +83,21 @@ def test_no_step_swallows_failures(wf):
         for s in job["steps"]:
             assert "continue-on-error" not in s, s
             assert "|| true" not in s.get("run", ""), s
+
+
+# Pre-existing upstream failures at bfa2921. This list must only ever shrink.
+EXPECTED_TEST_EXCLUDES = [
+    "src/platform/artwork-thumb.wiring.test.ts",
+    "src/test/chat-overlay-share-fns.test.ts",
+    "src/test/chat-plain-mode.test.ts",
+    "src/test/export-coverage.test.ts",
+    "src/routes/podcasts/-route.test.tsx",
+]
+
+
+def test_webui_test_exclusions_are_exactly_the_known_baseline_failures(wf):
+    step = next(s for s in wf["jobs"]["webui"]["steps"] if "npm test" in s.get("run", ""))
+    tokens = step["run"].split()
+    excludes = [tokens[i + 1] for i, t in enumerate(tokens) if t == "--exclude"]
+    assert excludes == EXPECTED_TEST_EXCLUDES
+    assert "src/routes/import/-route.test.tsx" not in step["run"]
