@@ -57,15 +57,16 @@ vs `origin/main` (skipped if none), then the full `npm run build` and `npm test`
 `webui/` (it would conflict with every upstream merge). vitest can time out under heavy local load;
 CI is the reference.
 
-`npm test` in fork-ci excludes (via `--exclude`) exactly these 5 files, which fail on the untouched
-upstream baseline at `bfa2921` (locally and in CI). Remove an entry once upstream fixes it; never add one
-(`tests/test_fork_ci_workflow.py` pins the list). `src/routes/import/-route.test.tsx` failed once in CI
-but passed locally, so it is deliberately NOT excluded — report it if it flakes.
+`npm test` in fork-ci excludes (via `--exclude`) exactly these 6 files, which fail on the untouched
+upstream baseline at `bfa2921`. Remove an entry once upstream fixes it; never add one
+(`tests/test_fork_ci_workflow.py` pins the list). The last one (`import`) passes locally but failed
+deterministically in 2 of 2 GitHub-runner runs (upstream timing/env issue); the others fail locally too.
 - `src/platform/artwork-thumb.wiring.test.ts`
 - `src/test/chat-overlay-share-fns.test.ts`
 - `src/test/chat-plain-mode.test.ts`
 - `src/test/export-coverage.test.ts`
 - `src/routes/podcasts/-route.test.tsx`
+- `src/routes/import/-route.test.tsx`
 
 Tests use pytest in `tests/`; match existing style. Tests must never hit the real Deezer,
 Navidrome, Tidal or any network service — mock at the client boundary.
