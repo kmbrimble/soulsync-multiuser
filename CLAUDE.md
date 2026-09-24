@@ -45,11 +45,15 @@ targeted test files; run the full suite once before pushing, or let the feature-
 (~21 min for the Python job) be the full-suite gate. Never run two full suites at once
 (`pgrep -f "^python -m pytest"`).
 
-**Known baseline CI failure:** the `webui` job fails at `npm run check` on upstream code
-("Format issues found in … 102 files" at `ae77a6e`). It is pre-existing upstream formatting debt —
-not a blocker, and do not mass-reformat `webui/` (it would conflict with every upstream merge).
-Because that step fails first, CI never reaches `npm run build` / `npm test`: if a change touches
-`webui/`, run build + tests locally and only check formatting on the files you changed.
+**CI is `.github/workflows/fork-ci.yml`, not upstream's `build-and-test.yml`.** Upstream's webui job
+runs `npm run check` over the whole tree, which fails on pre-existing upstream debt (format issues in
+~102 files, 16 oxlint/type errors at `bfa2921`). Upstream's workflow is therefore disabled in the fork
+via `gh workflow disable 365957448 -R kmbrimble/soulsync-multiuser` (a repo setting, so the file stays
+untouched for clean merges; re-enable with `gh workflow enable 365957448`). fork-ci runs the same Python
+job, and in the webui job runs `oxfmt --check` + `oxlint --type-check` only on `webui/src` files changed
+vs `origin/main` (skipped if none), then the full `npm run build` and `npm test`. Do not mass-reformat
+`webui/` (it would conflict with every upstream merge). vitest can time out under heavy local load;
+CI is the reference.
 
 Tests use pytest in `tests/`; match existing style. Tests must never hit the real Deezer,
 Navidrome, Tidal or any network service — mock at the client boundary.
@@ -94,8 +98,8 @@ Navidrome, Tidal or any network service — mock at the client boundary.
 
 ## Deploy and verify
 
-`.github/workflows/build-and-test.yml` runs on pushes to any branch **except** `main`/`dev`.
-So CI must be proven on the feature branch *before* it reaches main:
+`.github/workflows/fork-ci.yml` ("Fork - Compile the app and run tests") runs on pushes to any branch
+**except** `main`/`dev`. So CI must be proven on the feature branch *before* it reaches main:
 
 1. `git push -u origin HEAD` (feature branch), then `gh run list --branch <branch> -L 1` and
    `gh run watch <id> --exit-status`. Red CI → report and stop, do not merge.

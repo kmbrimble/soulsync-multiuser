@@ -4,6 +4,12 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-09-25 — Fork CI that goes green on a clean change
+- New `.github/workflows/fork-ci.yml`: same Python job as upstream; webui job runs `oxfmt --check`
+  and `oxlint --type-check` only on `webui/src` files changed vs `origin/main`, then full build + tests.
+  Upstream's `build-and-test.yml` (whole-tree `npm run check`, which fails on upstream debt) is left
+  untouched and disabled via `gh workflow disable 365957448`. Spec: `tests/test_fork_ci_workflow.py`.
+
 ### 2026-09-24 — Deezer Loved tracks
 - **Bug fix (upstream bug):** "My Deezer playlists" was empty for any *private* Deezer profile —
   `api.deezer.com/user/<id>/playlists` and `/playlist/<id>` reject the ARL cookie
