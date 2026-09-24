@@ -488,6 +488,19 @@ def update_profile(profile_id):
                 sides = data['allowed_sides']
                 kwargs['allowed_sides'] = sides if sides in ('music', 'video', 'both') else None
 
+        # library folder (fork): admin only; limits a profile's Library page to
+        # one folder of the shared library ('' clears it). Never the admin profile.
+        if current['is_admin'] and 'library_path_prefix' in data:
+            from core.profile_library_folder import normalize_prefix
+            folder = normalize_prefix(data['library_path_prefix'])
+            if int(profile_id) == 1 and folder:
+                return jsonify({'success': False, 'error': 'The admin profile always sees the whole library'}), 400
+            if int(profile_id) != 1 and not database.set_profile_library_prefix(profile_id, folder):
+                return jsonify({'success': False, 'error': 'Failed to save the library folder'}), 500
+            if folder:
+                from core.navidrome_folder_map import refresh_in_background
+                refresh_in_background(database)   # fill the folder map now, not at the next library sync
+
         # own library (#1199): admin only, never on the admin profile itself
         library_result = None
         if current['is_admin'] and ('library_mode' in data or 'library_root' in data):

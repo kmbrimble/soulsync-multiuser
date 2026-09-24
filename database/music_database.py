@@ -1080,6 +1080,8 @@ class MusicDatabase:
             self._add_profile_service_credentials(cursor)
             self._add_profile_navidrome_login(cursor)
             self._add_profile_deezer_arl(cursor)
+            self._add_profile_library_prefix(cursor)
+            self._add_track_library_folder(cursor)
             self._add_profile_plex_home_user(cursor)
             self._add_own_library_columns(cursor)
             self._repair_own_jellyfin_artist_ids(cursor)
@@ -5701,6 +5703,74 @@ class MusicDatabase:
         arl = config_manager._decrypt_value(row[0])
         return arl if isinstance(arl, str) and arl else None
 
+    def _add_profile_library_prefix(self, cursor):
+        """a folder of the shared library a profile is limited to on the Library
+        page (fork). NULL/empty = the whole library."""
+        try:
+            cursor.execute("ALTER TABLE profiles ADD COLUMN library_path_prefix TEXT DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+    def set_profile_library_prefix(self, profile_id: int, prefix: Optional[str]) -> bool:
+        """save (or with an empty value clear) a profile's library folder.
+        The admin profile is never limited."""
+        from core.profile_library_folder import normalize_prefix
+        if int(profile_id) == 1:
+            return False
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE profiles SET library_path_prefix = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (normalize_prefix(prefix) or None, profile_id))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Error saving library folder for profile {profile_id}: {e}")
+            return False
+
+    def get_profile_library_prefix(self, profile_id: Optional[int] = None) -> str:
+        """the profile's library folder ('' = everything). None = the requester.
+        Raises on a DB error: a failed read must not silently widen the view."""
+        if profile_id is None:
+            from core.profile_context import get_current_profile_id
+            profile_id = get_current_profile_id()
+        if not profile_id or int(profile_id) == 1:
+            return ''
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT library_path_prefix FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+        return (row[0] or '') if row else ''
+
+    def _folder_track_sql(self, prefix: str, alias: str = 't') -> Tuple[str, list]:
+        """WHERE fragment: the track aliased ``alias`` lies under ``prefix`` per the
+        Navidrome real-path map. A track with no mapping row does not match (hidden)."""
+        from core.profile_library_folder import track_path_sql
+        if not prefix:
+            return '1=1', []
+        sql, params = track_path_sql(prefix, 'tlf.rel_path')
+        return (f"EXISTS (SELECT 1 FROM track_library_folder tlf WHERE tlf.track_id = {alias}.id AND {sql})",
+                params)
+
+    def _add_track_library_folder(self, cursor):
+        """track id -> Navidrome library-relative path (fork); see core.navidrome_folder_map."""
+        cursor.execute("""CREATE TABLE IF NOT EXISTS track_library_folder (
+            track_id TEXT PRIMARY KEY, rel_path TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+
+    def replace_track_folders(self, paths: Dict[str, str]) -> int:
+        """swap in a complete id -> relative-path map in one transaction."""
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM track_library_folder")
+            conn.executemany("INSERT INTO track_library_folder (track_id, rel_path) VALUES (?, ?)",
+                             list(paths.items()))
+            conn.commit()
+        return len(paths)
+
+    def any_profile_library_prefix(self) -> bool:
+        with self._get_connection() as conn:
+            return conn.execute("SELECT 1 FROM profiles WHERE library_path_prefix IS NOT NULL "
+                                "AND library_path_prefix != '' LIMIT 1").fetchone() is not None
+
     def set_profile_navidrome_login(self, profile_id: int, username: Optional[str], password: Optional[str]) -> bool:
         """save (or with empty values clear) a profile's own navidrome login."""
         try:
@@ -8024,6 +8094,7 @@ class MusicDatabase:
                         'listenbrainz_username': row['listenbrainz_username'] if 'listenbrainz_username' in columns else None,
                         'library_mode': (row['library_mode'] if 'library_mode' in columns else None) or 'shared',
                         'library_root': row['library_root'] if 'library_root' in columns else None,
+                        'library_path_prefix': (row['library_path_prefix'] if 'library_path_prefix' in columns else None) or '',
                         'created_at': row['created_at'],
                         'updated_at': row['updated_at'],
                     })
@@ -8060,6 +8131,7 @@ class MusicDatabase:
                         'listenbrainz_username': row['listenbrainz_username'] if 'listenbrainz_username' in columns else None,
                         'library_mode': (row['library_mode'] if 'library_mode' in columns else None) or 'shared',
                         'library_root': row['library_root'] if 'library_root' in columns else None,
+                        'library_path_prefix': (row['library_path_prefix'] if 'library_path_prefix' in columns else None) or '',
                         'created_at': row['created_at'],
                         'updated_at': row['updated_at'],
                     }
@@ -17451,6 +17523,18 @@ class MusicDatabase:
                 where_conditions.append(scope_sql)
                 params.extend(scope_params)
 
+                # fork: a profile limited to one library folder only lists artists
+                # with a track in it (any same-name row, as the dedup below merges them)
+                folder_prefix = self.get_profile_library_prefix(profile_id)
+                folder_sql, folder_params = self._folder_track_sql(folder_prefix, 'ft')
+                if folder_prefix:
+                    where_conditions.append(f"""EXISTS (SELECT 1 FROM artists fa
+                        JOIN albums fal ON fal.artist_id = fa.id
+                        JOIN tracks ft ON ft.album_id = fal.id
+                        WHERE fa.name = a.name AND fa.server_source = a.server_source
+                          AND +fa.owner_profile_id IS a.owner_profile_id AND {folder_sql})""")
+                    params.extend(folder_params)
+
                 where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
 
                 # Pre-fetch watchlist data for this profile (small table, single fast query)
@@ -17559,15 +17643,24 @@ class MusicDatabase:
                     # on a 300k-track install; this is ~110 ms for the same
                     # numbers (an album belongs to one artist row, a track to
                     # one album, so the sums equal the distinct counts).
+                    # fork: a folder-limited profile counts only what is in its folder
+                    tfolder_sql, tfolder_params = self._folder_track_sql(folder_prefix, 't')
+                    if folder_prefix:
+                        album_count_sql = f"""(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id
+                             AND EXISTS (SELECT 1 FROM tracks t WHERE t.album_id = al.id AND {tfolder_sql}))"""
+                        album_count_params = tfolder_params
+                    else:
+                        album_count_sql = "(SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id)"
+                        album_count_params = []
                     cursor.execute(f"""
                         SELECT
                             ar.name as artist_name, ar.server_source as artist_source,
-                            (SELECT COUNT(*) FROM albums al WHERE al.artist_id = ar.id) as album_count,
+                            {album_count_sql} as album_count,
                             (SELECT COUNT(*) FROM albums al JOIN tracks t ON t.album_id = al.id
-                             WHERE al.artist_id = ar.id) as track_count
+                             WHERE al.artist_id = ar.id AND {tfolder_sql}) as track_count
                         FROM artists ar
                         WHERE {' OR '.join(or_clauses)}
-                    """, or_params)
+                    """, [*album_count_params, *tfolder_params, *or_params])
                     merged: Dict[tuple, list] = {}
                     for crow in cursor.fetchall():
                         key = (crow['artist_name'], crow['artist_source'])
@@ -17686,16 +17779,18 @@ class MusicDatabase:
         """
         empty = {'count': 0, 'artist_id': None}
         try:
+            # fork: the banner counts only what a folder-limited profile can see
+            t_sql, t_params = self._folder_track_sql(self.get_profile_library_prefix(), 't')
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(f"""
                     SELECT ar.id AS artist_id, COUNT(DISTINCT t.id) AS track_count
                     FROM artists ar
                     LEFT JOIN albums al ON al.artist_id = ar.id
-                    LEFT JOIN tracks t ON t.album_id = al.id
+                    LEFT JOIN tracks t ON t.album_id = al.id AND {t_sql}
                     WHERE LOWER(TRIM(ar.name)) = 'unknown artist'
                     GROUP BY ar.id
-                """)
+                """, t_params)
                 rows = cursor.fetchall()
 
             total = sum(int(r['track_count'] or 0) for r in rows)
@@ -17724,6 +17819,17 @@ class MusicDatabase:
                 cursor = conn.cursor()
 
                 scope_sql, scope_params = self._current_scope_sql()
+                # fork: a folder-limited profile only reaches what is in its folder
+                folder_prefix = self.get_profile_library_prefix()
+                folder_sql, folder_params = self._folder_track_sql(folder_prefix, 'ft')
+                t_sql, t_params = self._folder_track_sql(folder_prefix, 't')
+                tt_sql, tt_params = self._folder_track_sql(folder_prefix, 'tracks')
+                artist_folder_sql = album_folder_sql = ''
+                if folder_prefix:
+                    artist_folder_sql = f"""AND EXISTS (SELECT 1 FROM artists fa
+                        JOIN albums fal ON fal.artist_id = fa.id JOIN tracks ft ON ft.album_id = fal.id
+                        WHERE fa.name = artists.name AND fa.server_source = artists.server_source AND {folder_sql})"""
+                    album_folder_sql = f"AND EXISTS (SELECT 1 FROM tracks ft WHERE ft.album_id = a.id AND {folder_sql})"
                 # Get artist information
                 cursor.execute(f"""
                     SELECT
@@ -17733,8 +17839,8 @@ class MusicDatabase:
                         tidal_id, qobuz_id, soul_id, amazon_id,
                         lastfm_listeners, lastfm_playcount, lastfm_tags, lastfm_bio
                     FROM artists
-                    WHERE id = ? AND {scope_sql}
-                """, (artist_id, *scope_params))
+                    WHERE id = ? AND {scope_sql} {artist_folder_sql}
+                """, (artist_id, *scope_params, *(folder_params if folder_prefix else [])))
 
                 artist_row = cursor.fetchone()
 
@@ -17782,16 +17888,17 @@ class MusicDatabase:
                             WHERE a2.artist_id = a.artist_id
                             AND a2.title = a.title
                             AND COALESCE(a2.year, '') = COALESCE(a.year, '')
-                        )) as owned_tracks
+                        ) AND {t_sql}) as owned_tracks
                     FROM albums a
                     WHERE a.artist_id IN (
                         SELECT id FROM artists
                         WHERE name = (SELECT name FROM artists WHERE id = ?)
                         AND server_source = (SELECT server_source FROM artists WHERE id = ?) AND {scope_sql}
-                    )
+                    ) {album_folder_sql}
                     GROUP BY a.artist_id, a.title, a.year
                     ORDER BY a.year DESC, a.title
-                """, (artist_id, artist_id, *scope_params))
+                """, (*t_params, artist_id, artist_id, *scope_params,
+                      *(folder_params if folder_prefix else [])))
 
                 album_rows = cursor.fetchall()
 
@@ -17810,14 +17917,15 @@ class MusicDatabase:
                                 WHERE name = (SELECT name FROM artists WHERE id = ?)
                                 AND server_source = (SELECT server_source FROM artists WHERE id = ?) AND {scope_sql}
                             )
-                        )) as track_count
-                    FROM albums
+                        ) AND {tt_sql}) as track_count
+                    FROM albums a
                     WHERE artist_id IN (
                         SELECT id FROM artists
                         WHERE name = (SELECT name FROM artists WHERE id = ?)
                         AND server_source = (SELECT server_source FROM artists WHERE id = ?) AND {scope_sql}
-                    )
-                """, (artist_id, artist_id, *scope_params, artist_id, artist_id, *scope_params))
+                    ) {album_folder_sql}
+                """, (artist_id, artist_id, *scope_params, *tt_params,
+                      artist_id, artist_id, *scope_params, *(folder_params if folder_prefix else [])))
 
                 stats_row = cursor.fetchone()
                 album_count = stats_row['album_count'] if stats_row else 0
@@ -17929,8 +18037,21 @@ class MusicDatabase:
                 cursor = conn.cursor()
 
                 scope_sql, scope_params = self._current_scope_sql()
+                # fork: a folder-limited profile only reaches what is in its folder
+                folder_prefix = self.get_profile_library_prefix()
+                folder_sql, folder_params = self._folder_track_sql(folder_prefix, 'ft')
+                artist_folder_sql = album_folder_sql = ''
+                if folder_prefix:
+                    artist_folder_sql = f"""AND EXISTS (SELECT 1 FROM artists fa
+                        JOIN albums fal ON fal.artist_id = fa.id JOIN tracks ft ON ft.album_id = fal.id
+                        WHERE fa.name = artists.name AND fa.server_source = artists.server_source AND {folder_sql})"""
+                    album_folder_sql = f"AND EXISTS (SELECT 1 FROM tracks ft WHERE ft.album_id = albums.id AND {folder_sql})"
+                    folder_params = list(folder_params)
+                else:
+                    folder_params = []
                 # Get artist with all columns
-                cursor.execute(f"SELECT * FROM artists WHERE id = ? AND {scope_sql}", (artist_id, *scope_params))
+                cursor.execute(f"SELECT * FROM artists WHERE id = ? AND {scope_sql} {artist_folder_sql}",
+                               (artist_id, *scope_params, *folder_params))
                 artist_row = cursor.fetchone()
                 if not artist_row:
                     # `artist_id` may be a *source* ID (e.g. a MusicBrainz MBID
@@ -17946,8 +18067,8 @@ class MusicDatabase:
                     id_columns = list(dict.fromkeys(SOURCE_ID_FIELD.values()))
                     where = ' OR '.join(f"{col} = ?" for col in id_columns)
                     cursor.execute(
-                        f"SELECT * FROM artists WHERE ({where}) AND {scope_sql} LIMIT 1",
-                        (*[str(artist_id) for _ in id_columns], *scope_params),
+                        f"SELECT * FROM artists WHERE ({where}) AND {scope_sql} {artist_folder_sql} LIMIT 1",
+                        (*[str(artist_id) for _ in id_columns], *scope_params, *folder_params),
                     )
                     artist_row = cursor.fetchone()
                 if not artist_row:
@@ -17979,9 +18100,9 @@ class MusicDatabase:
                 placeholders = ','.join('?' * len(artist_ids))
                 cursor.execute(f"""
                     SELECT * FROM albums
-                    WHERE artist_id IN ({placeholders})
+                    WHERE artist_id IN ({placeholders}) {album_folder_sql}
                     ORDER BY year DESC, title
-                """, artist_ids)
+                """, [*artist_ids, *folder_params])
                 album_rows = cursor.fetchall()
 
                 albums = []
@@ -17998,11 +18119,12 @@ class MusicDatabase:
                         album_data['genres'] = []
 
                     # Get all tracks for this album with all columns
-                    cursor.execute("""
+                    t_sql, t_params = self._folder_track_sql(folder_prefix, 'tracks')
+                    cursor.execute(f"""
                         SELECT * FROM tracks
-                        WHERE album_id = ?
+                        WHERE album_id = ? AND {t_sql}
                         ORDER BY track_number, title
-                    """, (album_data['id'],))
+                    """, (album_data['id'], *t_params))
                     track_rows = cursor.fetchall()
                     from core.imports.file_ops import fill_missing_track_bitrate
                     album_data['tracks'] = [fill_missing_track_bitrate(dict(tr)) for tr in track_rows]

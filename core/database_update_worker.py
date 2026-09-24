@@ -184,6 +184,18 @@ class DatabaseUpdateWorker:
             except Exception as e:
                 logger.error(f"Error in callback for {signal_name}: {e}")
 
+    def _refresh_folder_map(self):
+        """fork: keep the Navidrome track -> real-folder map current for
+        folder-limited profiles (best-effort; only when one is configured)."""
+        if self.server_type != 'navidrome':
+            return
+        try:
+            if self.database.any_profile_library_prefix():
+                from core.navidrome_folder_map import refresh_track_folders
+                refresh_track_folders(self.database)
+        except Exception as e:
+            logger.warning(f"Could not refresh the track folder map: {type(e).__name__}")
+
     def _emit_finished(self, *args):
         """Run the post-scan hook (auto-reconcile) as the final phase, THEN
         emit 'finished'.
@@ -414,6 +426,10 @@ class DatabaseUpdateWorker:
             self.removed_artists = removal.get('artists_removed', 0) if removal else 0
             self.removed_albums = removal.get('albums_removed', 0) if removal else 0
             self.removed_tracks = removal.get('tracks_removed', 0) if removal else 0
+
+            # fork: keep the Navidrome track -> real-folder map current for
+            # folder-limited profiles (best-effort, only when one is configured)
+            self._refresh_folder_map()
 
             # Emit final results
             self._emit_finished(

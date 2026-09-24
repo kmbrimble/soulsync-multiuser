@@ -30,6 +30,26 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 - Unverified: `/library/loved` is accepted but could not be confirmed against the live site (the
   web app is an SPA that answers 200 for any path).
 
+### 2026-09-25 — Per-profile library folder (K sees only KMusic/, T only TMusic/)
+- New `profiles.library_path_prefix` (migration adds the column; empty = whole library, admin never
+  limited). Set by an admin via `PUT /api/profiles/<id>` `{"library_path_prefix": "KMusic"}`
+  (`""` clears); also returned by `GET /api/profiles`. Match is on a path-segment boundary, case as stored.
+- Navidrome's Subsonic `path` is a fake `Artist/Album/NN - Title.ext` (no top-level folder), so
+  `tracks.file_path` cannot be filtered and is left untouched. New side table `track_library_folder`
+  (track id -> library-relative real path) is filled from Navidrome's native REST API
+  (`POST /auth/login`, paged `GET /api/song`) with the existing Navidrome admin credentials
+  (`core/navidrome_folder_map.py`): after a Navidrome library sync (only when some profile has a
+  prefix), and immediately when an admin sets a prefix. Fails soft (old map kept), retries 429/5xx,
+  never logs credentials. Tracks with no mapping are hidden from a limited profile, shown to admin.
+- Scoped (limited profiles only): Library page artist list + its pagination total and per-artist
+  album/track counts (`get_library_artists`), artist page discography (`get_artist_discography`) and
+  the enhanced artist view (`get_artist_full_detail`), and the unmatched-import banner
+  (`/api/library/unmatched-summary`). NOT scoped (decision): playlist sync, matching, wishlist,
+  `search_tracks` / `/api/library/search-tracks` (manual-match tool), dashboard/database stats,
+  `POST /api/library/watchlist-all-unwatched`, `/api/library/export/m3u`, `core.library_scope`.
+  The public `/api/v1/library/artists` passes its explicit `profile_id`, so it scopes too.
+- API only, no settings UI yet.
+
 ### 2026-09-24 — Deezer Loved tracks
 - **Bug fix (upstream bug):** "My Deezer playlists" was empty for any *private* Deezer profile —
   `api.deezer.com/user/<id>/playlists` and `/playlist/<id>` reject the ARL cookie
