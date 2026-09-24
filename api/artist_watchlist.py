@@ -312,9 +312,8 @@ def _deezer_export_client(profile_id):
     if not profile_id or profile_id == 1:
         return DeezerDownloadClient()
     from core.profile_deezer import resolve_deezer_dl_client
-    fallback = object()
-    client = resolve_deezer_dl_client(fallback, profile_id)
-    return None if client is fallback else client
+    # global_client=None: no own ARL (or unreadable row) comes back as None -> refused
+    return resolve_deezer_dl_client(None, profile_id)
 
 
 def _run_playlist_export(job_id, playlist_id, title, mode, profile_id=1):
