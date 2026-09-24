@@ -101,3 +101,12 @@ def test_webui_test_exclusions_are_exactly_the_known_baseline_failures(wf):
     tokens = step["run"].split()
     excludes = [tokens[i + 1] for i, t in enumerate(tokens) if t == "--exclude"]
     assert excludes == EXPECTED_TEST_EXCLUDES
+
+
+def test_vitest_retry_is_bounded_at_two_and_pytest_has_none(wf):
+    import re
+
+    step = next(s for s in wf["jobs"]["webui"]["steps"] if "npm test" in s.get("run", ""))
+    assert re.findall(r"--retry[= ](\d+)", step["run"]) == ["2"]
+    py = "\n".join(s.get("run", "") for s in wf["jobs"]["sanity-check"]["steps"])
+    assert "retry" not in py.lower() and "reruns" not in py.lower()

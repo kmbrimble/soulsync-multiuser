@@ -68,6 +68,10 @@ deterministically in 2 of 2 GitHub-runner runs (upstream timing/env issue); the 
 - `src/routes/podcasts/-route.test.tsx`
 - `src/routes/import/-route.test.tsx`
 
+fork-ci also runs vitest with `--retry=2` (pinned by the spec test): upstream's UI tests are
+timing-flaky on shared runners (e.g. `sync/-ui/mirrored-tab.test.tsx` failed once, passed on rerun),
+and a deterministic failure still fails all 3 attempts. pytest gets no retries.
+
 Tests use pytest in `tests/`; match existing style. Tests must never hit the real Deezer,
 Navidrome, Tidal or any network service — mock at the client boundary.
 

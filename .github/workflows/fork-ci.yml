@@ -99,9 +99,12 @@ jobs:
       # The last entry (import route) is different: it passes locally but fails deterministically on
       # GitHub runners (upstream timing/env issue).
       # Do not add entries here; mirrored in CLAUDE.md.
+      # --retry=2: upstream's UI tests are timing-flaky on shared runners; a deterministic failure
+      # still fails all 3 attempts. Python (pytest) gets no retries.
       - name: Run tests
         run: >-
           npm test --
+          --retry=2
           --exclude src/platform/artwork-thumb.wiring.test.ts
           --exclude src/test/chat-overlay-share-fns.test.ts
           --exclude src/test/chat-plain-mode.test.ts
