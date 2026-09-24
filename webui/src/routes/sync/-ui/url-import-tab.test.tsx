@@ -209,6 +209,106 @@ describe('DeezerLinkTab', () => {
     expect(calls.length).toBe(fetchesBefore);
   });
 
+  describe('Loved tracks links', () => {
+    const LOVED = 'https://www.deezer.com/en/profile/12345/loved';
+    const resolveUrl = `/api/deezer/resolve-loved?url=${encodeURIComponent(LOVED)}`;
+
+    function paste(url: string) {
+      render(<Harness Tab={DeezerLinkTab} />);
+      fireEvent.change(screen.getByPlaceholderText('Paste Deezer Playlist URL...'), {
+        target: { value: url },
+      });
+      fireEvent.click(screen.getByText('Load Playlist'));
+    }
+
+    afterEach(() => {
+      delete (window as { registerSyncAccountPlaylist?: unknown }).registerSyncAccountPlaylist;
+      delete (window as { startPlaylistSync?: unknown }).startPlaylistSync;
+    });
+
+    it("own account: loads through the ARL endpoint and starts the engine's deezer_arl_ sync", async () => {
+      stubFetch();
+      const toast = vi.fn();
+      const register = vi.fn();
+      const startSync = vi.fn();
+      window.showToast = toast as typeof window.showToast;
+      window.registerSyncAccountPlaylist = register as typeof window.registerSyncAccountPlaylist;
+      window.startPlaylistSync = startSync as typeof window.startPlaylistSync;
+      responder = (url) => {
+        if (url === resolveUrl) return { kind: 'own', playlist_id: 'K-LOVED' };
+        if (url === '/api/deezer/arl-playlist/K-LOVED?async=1') {
+          return { pending: true, job_id: 'job-l' };
+        }
+        if (url === '/api/deezer/playlist-load/job-l') {
+          return {
+            status: 'complete',
+            playlist: { name: 'Loved tracks', owner: 'K', tracks: [{ name: 'a' }, { name: 'b' }] },
+          };
+        }
+        return { success: true };
+      };
+
+      paste(LOVED);
+      await waitFor(() => expect(startSync).toHaveBeenCalledWith('deezer_arl_K-LOVED'));
+      expect(register).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'deezer_arl_K-LOVED', name: 'Loved tracks', track_count: 2 }),
+      );
+      // never the public playlist endpoint: it refuses the Loved list
+      expect(calls.some((c) => c.url.startsWith('/api/deezer/playlist/'))).toBe(false);
+      expect(toast).toHaveBeenCalledWith(expect.stringContaining('Loved tracks'), 'success');
+    });
+
+    it('another public profile: resolves to a playlist id and takes the ordinary link path', async () => {
+      stubFetch();
+      window.showToast = vi.fn() as typeof window.showToast;
+      responder = (url) => {
+        if (url === resolveUrl) return { kind: 'public', playlist_id: '5550001' };
+        if (url === '/api/deezer/playlist/5550001?async=1') {
+          return { pending: true, job_id: 'job-p' };
+        }
+        if (url === '/api/deezer/playlist-load/job-p') {
+          return {
+            status: 'complete',
+            playlist: { id: 5550001, name: 'Their Loved', track_count: 1, tracks: [{ name: 't' }] },
+          };
+        }
+        if (url === '/api/deezer/playlists/states') return { states: [] };
+        return { success: true };
+      };
+      paste(LOVED);
+      await waitFor(() => expect(cardName('Their Loved')).toBeDefined());
+      expect(calls.some((c) => c.url.startsWith('/api/deezer/arl-playlist/'))).toBe(false);
+    });
+
+    it('a resolver error (no ARL / private profile) is toasted and nothing is loaded', async () => {
+      stubFetch();
+      const toast = vi.fn();
+      window.showToast = toast as typeof window.showToast;
+      const startSync = vi.fn();
+      window.startPlaylistSync = startSync as typeof window.startPlaylistSync;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({ error: 'Connect your Deezer account under My Accounts' }),
+              {
+                status: 401,
+              },
+            ),
+        ),
+      );
+      paste(LOVED);
+      await waitFor(() =>
+        expect(toast).toHaveBeenCalledWith(
+          expect.stringContaining('Connect your Deezer account under My Accounts'),
+          'error',
+        ),
+      );
+      expect(startSync).not.toHaveBeenCalled();
+    });
+  });
+
   it('a discovering row restored from the states list resumes its poller (3320-3326)', async () => {
     stubFetch();
     window.showToast = vi.fn() as typeof window.showToast;

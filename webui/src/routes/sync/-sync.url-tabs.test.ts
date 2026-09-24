@@ -78,6 +78,18 @@ describe('input validation toasts (verbatim)', () => {
     expect(deezerInputResult('789')).toEqual({ ok: true, id: '789' });
   });
 
+  it('deezer Loved tracks links carry the url for the server to resolve', () => {
+    for (const url of [
+      'https://www.deezer.com/en/profile/12345/loved',
+      'https://www.deezer.com/en-us/profile/12345/loved?utm=x',
+      'deezer.com/library/loved',
+    ]) {
+      expect(deezerInputResult(url)).toEqual({ ok: true, loved: url });
+    }
+    expect(deezerInputResult('https://www.deezer.com/en/profile/12345/lovedish').ok).toBe(false);
+    expect(deezerInputResult('https://www.deezer.com/en/profile/12345').ok).toBe(false);
+  });
+
   it('spotify-public (6615-6625) — urls + URIs', () => {
     expect(spotifyPublicUrlError('')).toBe('Please enter a Spotify URL');
     // A link this page CAN read, just not here, now names the tab that wants

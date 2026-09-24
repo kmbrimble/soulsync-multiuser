@@ -404,6 +404,24 @@ export async function fetchDeezerLinkPlaylist(
   return pollDeezerPlaylistLoad<Record<string, unknown>>(initial.job_id, onProgress);
 }
 
+/**
+ * GET /api/deezer/resolve-loved — a pasted Loved-tracks link to the playlist to
+ * load: `own` (the profile's own account, read through its ARL) or `public`
+ * (another user's public profile, an ordinary playlist). Throws the server's
+ * message on !ok, e.g. "Connect your Deezer account under My Accounts…".
+ */
+export async function resolveDeezerLoved(
+  url: string,
+): Promise<{ kind: 'own' | 'public'; playlist_id: string }> {
+  const response = await fetch(`/api/deezer/resolve-loved?url=${encodeURIComponent(url)}`);
+  const body = await readJson<{ error?: string; kind: 'own' | 'public'; playlist_id: string }>(
+    response,
+  );
+  if (!response.ok)
+    throw new Error(body.error || 'Could not resolve that Deezer Loved tracks link');
+  return body;
+}
+
 /** GET /api/youtube/playlists (loadYouTubePlaylistsFromBackend, sync-spotify.js 695). */
 export async function fetchYouTubePlaylists(): Promise<Record<string, unknown>[]> {
   const response = await fetch('/api/youtube/playlists');

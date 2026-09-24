@@ -15,6 +15,21 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
   the builder autocompletes signal names from all profiles, not just Admin + system. Only caller is
   `GET /api/automations/blocks`; still deduped and sorted.
 
+### 2026-09-25 — Paste a Deezer Loved-tracks link on the Sync page
+- The Deezer link box (and the Add-playlist sheet's auto-routing) now accepts
+  `deezer.com/[locale/]profile/<id>/loved` and `deezer.com/[locale/]library/loved`. New
+  `GET /api/deezer/resolve-loved?url=` (`DeezerClient.parse_loved_url`) turns the link into a
+  playlist: **own** account (`library/loved`, or `profile/<your id>/loved`) → the profile's
+  `LOVEDTRACKS_ID`, loaded through the same ARL path as the "My Deezer playlists" Loved card
+  (`/api/deezer/arl-playlist/<id>`, engine id `deezer_arl_<id>`) and synced immediately;
+  **another user's public profile** → the public API's `is_loved_track` playlist, loaded as an
+  ordinary link playlist. A private profile gets a clear error; a non-admin with no ARL of their
+  own is told to connect one under My Accounts (never handed the global ARL owner's list).
+- Own Loved is deliberately *not* put in the link-tab discovery engine: its state store is shared
+  across profiles and its start refetches via the public API, which refuses Loved.
+- Unverified: `/library/loved` is accepted but could not be confirmed against the live site (the
+  web app is an SPA that answers 200 for any path).
+
 ### 2026-09-24 — Deezer Loved tracks
 - **Bug fix (upstream bug):** "My Deezer playlists" was empty for any *private* Deezer profile —
   `api.deezer.com/user/<id>/playlists` and `/playlist/<id>` reject the ARL cookie

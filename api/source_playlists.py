@@ -2327,6 +2327,45 @@ def get_deezer_arl_playlists():
         return jsonify({'error': str(e)}), 500
 
 
+@bp.route('/api/deezer/resolve-loved', methods=['GET'])
+def resolve_deezer_loved_url():
+    """A pasted Deezer Loved-tracks link -> the playlist to load.
+
+    `own`: the requester's own account, read through their ARL like the Loved
+    card (/api/deezer/arl-playlist/<id>). `public`: another user's public
+    profile, an ordinary playlist id the public API serves."""
+    from core.deezer_client import DeezerClient
+    user_id = DeezerClient.parse_loved_url(request.args.get('url', ''))
+    if not user_id:
+        return jsonify({'error': 'Not a Deezer Loved tracks link.'}), 400
+
+    profile_id = get_current_profile_id()
+    try:
+        # A non-admin with no ARL of their own would resolve to the global
+        # client, i.e. the ARL owner's private Loved list: refuse instead.
+        has_arl = profile_id == 1 or bool(get_database().get_profile_deezer_arl(profile_id))
+    except Exception as e:   # noqa: BLE001 - unreadable row: fail closed
+        logger.error("could not read Deezer ARL for profile %s: %s", profile_id, e)
+        has_arl = False
+    dl = _deezer_dl_for_profile(profile_id) if has_arl else None
+    account = (dl._user_data or {}) if dl and dl.is_authenticated() else {}
+
+    if user_id == 'me' or (account and str(account.get('USER_ID')) == user_id):
+        loved_id = str(account.get('LOVEDTRACKS_ID') or '')
+        if not account:
+            return jsonify({'error': 'Connect your Deezer account under My Accounts to load '
+                                     'your own Loved tracks.'}), 401
+        if not loved_id or loved_id == '0':
+            return jsonify({'error': 'No Loved tracks playlist found on your Deezer account.'}), 404
+        return jsonify({'kind': 'own', 'playlist_id': loved_id})
+
+    loved_id = _get_deezer_client().get_public_loved_playlist_id(user_id)
+    if not loved_id:
+        return jsonify({'error': "That Deezer profile's Loved tracks are private or unavailable. "
+                                 "Only public profiles can be loaded from a link."}), 404
+    return jsonify({'kind': 'public', 'playlist_id': loved_id})
+
+
 @bp.route('/api/deezer/arl-playlist/<playlist_id>', methods=['GET'])
 def get_deezer_arl_playlist_tracks(playlist_id):
     """Fetch full playlist with tracks via ARL (like /api/spotify/playlist/<id>)."""

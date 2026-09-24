@@ -1718,6 +1718,41 @@ class DeezerClient:
         return None
 
     @staticmethod
+    def parse_loved_url(url: str) -> Optional[str]:
+        """The user id behind a Loved-tracks link, ``'me'`` for the id-less
+        ``/library/loved`` form (the logged-in user), else None.
+
+            https://www.deezer.com/en/profile/1234567/loved
+            deezer.com/profile/1234567/loved
+            https://www.deezer.com/en/library/loved
+        """
+        if not url or not isinstance(url, str):
+            return None
+        match = re.match(
+            r'(?:https?://)?(?:www\.)?deezer\.com/(?:[a-z]{2}(?:-[a-z]{2})?/)?'
+            r'(?:profile/(\d+)|(library))/loved(?:[/?#]|$)',
+            url.strip(), re.IGNORECASE)
+        if not match:
+            return None
+        return match.group(1) or 'me'
+
+    def get_public_loved_playlist_id(self, user_id: str) -> Optional[str]:
+        """Id of a user's Loved playlist via the public API, which only lists it
+        for a public profile. None if the profile is private or unknown."""
+        index = 0
+        while True:
+            # use_token=False: it is someone else's profile, our OAuth token adds nothing
+            page = self._api_get(f'user/{user_id}/playlists', {'index': index, 'limit': 100},
+                                 use_token=False)
+            data = (page or {}).get('data') or []
+            for p in data:
+                if p.get('is_loved_track'):
+                    return str(p['id'])
+            if not data or not page.get('next'):
+                return None
+            index += len(data)
+
+    @staticmethod
     def is_share_url(url: str) -> bool:
         """True for a Deezer share link, which hides its playlist id behind a
         redirect (``link.deezer.com/s/…``, ``deezer.page.link/…``).

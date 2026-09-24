@@ -20,6 +20,7 @@ import {
   extractSpotifyPublicId,
   historyWithEntry,
   historyWithout,
+  isDeezerLovedUrl,
   isDeezerShareUrl,
   pillDisplayName,
 } from './-sync.urls';
@@ -272,5 +273,16 @@ describe('deezer URL shapes people actually paste (#TheHomeGuy share link)', () 
   it('does not mistake a normal playlist URL for a share link', () => {
     expect(isDeezerShareUrl('https://www.deezer.com/playlist/123')).toBe(false);
     expect(isDeezerShareUrl('')).toBe(false);
+  });
+
+  it('recognises Loved tracks links, and nothing that merely looks like one', () => {
+    expect(isDeezerLovedUrl('https://www.deezer.com/en/profile/12345/loved')).toBe(true);
+    expect(isDeezerLovedUrl('https://www.deezer.com/profile/12345/loved/')).toBe(true);
+    expect(isDeezerLovedUrl('https://www.deezer.com/en-us/library/loved?x=1')).toBe(true);
+    expect(isDeezerLovedUrl('  deezer.com/profile/1/loved  ')).toBe(true);
+    expect(isDeezerLovedUrl('https://www.deezer.com/en/profile/12345')).toBe(false);
+    expect(isDeezerLovedUrl('https://www.deezer.com/en/profile/12345/lovedish')).toBe(false);
+    expect(isDeezerLovedUrl('https://www.deezer.com/playlist/123')).toBe(false);
+    expect(isDeezerLovedUrl('')).toBe(false);
   });
 });

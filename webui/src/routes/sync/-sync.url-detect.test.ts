@@ -163,6 +163,26 @@ describe('detection never disagrees with the parse that follows it', () => {
   });
 });
 
+describe('detectPlaylistUrl — Deezer Loved tracks links', () => {
+  it.each([
+    'https://www.deezer.com/en/profile/12345/loved',
+    'https://www.deezer.com/profile/12345/loved',
+    'https://www.deezer.com/en/library/loved',
+  ])('routes %s to the Deezer tab, url intact, no playlist id', (url) => {
+    expect(detectPlaylistUrl(url)).toEqual({ source: 'deezer', url, kind: 'loved' });
+  });
+
+  it('a Loved link on the Spotify tab names the Deezer tab', () => {
+    expect(wrongTabError('https://www.deezer.com/en/profile/1/loved', 'spotify_public')).toContain(
+      'Deezer Link',
+    );
+  });
+
+  it('a bare profile link is still not a playlist', () => {
+    expect(detectPlaylistUrl('https://www.deezer.com/en/profile/12345').source).toBeNull();
+  });
+});
+
 describe('wrongTabError — a good link on the wrong tab', () => {
   it('names the tab that wants it, for every cross pairing', () => {
     expect(wrongTabError('https://www.deezer.com/playlist/1', 'spotify_public')).toContain(

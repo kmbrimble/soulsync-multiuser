@@ -11,6 +11,7 @@ import type { UrlHistoryEntry } from './-sync.urls';
 import { wrongTabError } from './-sync.url-detect';
 import {
   extractDeezerPlaylistId,
+  isDeezerLovedUrl,
   isDeezerShareUrl,
   extractITunesLinkId,
   extractSpotifyPublicId,
@@ -42,8 +43,13 @@ export function youtubeUrlError(url: string): string | null {
 /** loadDeezerPlaylist 2710-2728 — returns the id, or the error toast. */
 export function deezerInputResult(
   rawUrl: string,
-): { ok: true; id: string } | { ok: false; error: string } {
+):
+  | { ok: true; id: string; loved?: undefined }
+  | { ok: true; loved: string; id?: undefined }
+  | { ok: false; error: string } {
   if (!rawUrl) return { ok: false, error: 'Please paste a Deezer playlist URL' };
+  // A Loved-tracks link has no playlist id yet; the tab has the server resolve it.
+  if (isDeezerLovedUrl(rawUrl)) return { ok: true, loved: rawUrl };
   const id = extractDeezerPlaylistId(rawUrl);
   if (!id) {
     // A share link is valid — it just hides its id behind a redirect the

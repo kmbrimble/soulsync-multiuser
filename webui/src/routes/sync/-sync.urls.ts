@@ -58,6 +58,18 @@ export function extractDeezerPlaylistId(url: string): string | null {
 }
 
 /**
+ * A Deezer Loved-tracks link: `/profile/<id>/loved`, or the logged-in
+ * `/library/loved`. It carries no PLAYLIST id (the Loved list's id is only known
+ * to the server), so the whole url goes to /api/deezer/resolve-loved.
+ * Mirrors DeezerClient.parse_loved_url.
+ */
+export function isDeezerLovedUrl(url: string): boolean {
+  return /deezer\.com\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(?:profile\/\d+|library)\/loved(?:[/?#]|$)/i.test(
+    (url || '').trim(),
+  );
+}
+
+/**
  * A Deezer share link — what the Share button in Deezer's own apps copies.
  *
  * These carry no playlist id at all; it only exists after following a

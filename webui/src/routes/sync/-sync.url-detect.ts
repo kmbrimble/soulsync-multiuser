@@ -28,6 +28,7 @@ import {
   extractDeezerPlaylistId,
   extractITunesLinkId,
   extractSpotifyPublicId,
+  isDeezerLovedUrl,
   isDeezerShareUrl,
 } from './-sync.urls';
 
@@ -99,6 +100,8 @@ export function detectPlaylistUrl(raw: string): UrlDetection {
   // A bare number satisfies extractDeezerPlaylistId, so require the host too:
   // `12345` is an unfinished paste, not a Deezer playlist.
   if (/deezer\.com/i.test(url)) {
+    // Its playlist id is resolved server-side; the Deezer tab takes the url as is.
+    if (isDeezerLovedUrl(url)) return { source: 'deezer', url, kind: 'loved' };
     const id = extractDeezerPlaylistId(url);
     if (id) return { source: 'deezer', url, id };
     return {

@@ -20,6 +20,7 @@ import {
   fetchDeezerArlPlaylists,
   fetchDeezerArlStatus,
   fetchDeezerLinkPlaylist,
+  resolveDeezerLoved,
   fetchExportConnectedSources,
   fetchMirroredPipelineStatus,
   fetchPlaylistExportStatus,
@@ -308,6 +309,34 @@ describe('parse + delete endpoints', () => {
     await expect(fetchDeezerLinkPlaylist('908622995')).rejects.toThrow(
       'Server returned 504 instead of JSON',
     );
+  });
+});
+
+describe('resolveDeezerLoved', () => {
+  it('GETs the resolver with the url encoded and returns kind + playlist id', async () => {
+    calls = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push({ url, method: 'GET', body: undefined, headers: undefined });
+        return new Response(JSON.stringify({ kind: 'own', playlist_id: '42' }));
+      }),
+    );
+    expect(await resolveDeezerLoved('https://www.deezer.com/en/library/loved')).toEqual({
+      kind: 'own',
+      playlist_id: '42',
+    });
+    expect(calls[0].url).toBe(
+      '/api/deezer/resolve-loved?url=https%3A%2F%2Fwww.deezer.com%2Fen%2Flibrary%2Floved',
+    );
+  });
+
+  it("throws the server's message, e.g. the connect-your-account hint", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ error: 'Connect it' }), { status: 401 })),
+    );
+    await expect(resolveDeezerLoved('x')).rejects.toThrow('Connect it');
   });
 });
 

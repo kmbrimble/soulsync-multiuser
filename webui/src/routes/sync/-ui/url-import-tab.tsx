@@ -24,7 +24,9 @@ import type { UrlTabPlaylist } from '../-sync.url-tabs';
 import type { SourceVertical } from '../-sync.use-vertical';
 
 import { urlTabCacheKey, useRememberedPlaylists } from '../-sync.account-cache';
+import { arlShimRow, deezerArlId } from '../-sync.accounts';
 import {
+  fetchDeezerArlPlaylistTracks,
   fetchDeezerLinkPlaylist,
   fetchSourcePlaylistsStates,
   fetchYouTubePlaylists,
@@ -32,6 +34,7 @@ import {
   parseSpotifyPublicUrl,
   parseYouTubeUrl,
   postMirrorPlaylist,
+  resolveDeezerLoved,
 } from '../-sync.api';
 import {
   DEEZER_PLAYLIST_PROGRESS_EVENT,
@@ -380,7 +383,7 @@ export function DeezerLinkTab({
         window.showToast?.(checked.error, 'error');
         return;
       }
-      if (deezerAlreadyLoaded(playlistsRef.current, checked.id)) {
+      if (checked.id !== undefined && deezerAlreadyLoaded(playlistsRef.current, checked.id)) {
         window.showToast?.('This playlist is already loaded', 'info');
         setInput('');
         return;
@@ -396,15 +399,55 @@ export function DeezerLinkTab({
       // Only ever rewrites TEXT, so if the frames never arrive (older server,
       // socket down) the load still completes normally and the overlay still
       // clears in the finally — the wait just goes back to being silent.
+      // A Loved link only learns its playlist id from the server (below).
+      let playlistId = checked.id ?? '';
       const onProgress = (event: Event) => {
         const frame = (event as CustomEvent<DeezerPlaylistProgressFrame>).detail;
-        const text = deezerProgressLabel(frame, checked.id);
+        const text = deezerProgressLabel(frame, playlistId);
         setProgress(text);
         if (text) window.showLoadingOverlay?.(`${label} — ${text}`);
       };
       window.addEventListener(DEEZER_PLAYLIST_PROGRESS_EVENT, onProgress);
       try {
-        const playlist = await fetchDeezerLinkPlaylist(checked.id);
+        if (checked.loved !== undefined) {
+          const resolved = await resolveDeezerLoved(checked.loved);
+          playlistId = resolved.playlist_id;
+          if (resolved.kind === 'own') {
+            // Your own Loved list is private: the public endpoint below refuses
+            // it, and the link-tab discovery engine would refetch it there. Load
+            // it through the ARL account path and hand it to the same engine as
+            // the "Your Deezer Playlists" Loved card.
+            const detail = await fetchDeezerArlPlaylistTracks(playlistId);
+            if (detail.error) throw new Error(detail.error);
+            const tracks = detail.tracks ?? [];
+            window.registerSyncAccountPlaylist?.(
+              arlShimRow(
+                {
+                  id: playlistId,
+                  name: detail.name || 'Loved tracks',
+                  owner: detail.owner,
+                  image_url: detail.image_url,
+                },
+                'modal',
+                tracks,
+              ),
+            );
+            void window.startPlaylistSync?.(deezerArlId(playlistId));
+            setInput('');
+            window.showToast?.(
+              `Syncing your Deezer Loved tracks (${tracks.length} tracks). ` +
+                'Progress shows under Your Deezer Playlists.',
+              'success',
+            );
+            return;
+          }
+          if (deezerAlreadyLoaded(playlistsRef.current, playlistId)) {
+            window.showToast?.('This playlist is already loaded', 'info');
+            setInput('');
+            return;
+          }
+        }
+        const playlist = await fetchDeezerLinkPlaylist(playlistId);
         setPlaylists((prev) => [...prev, playlist]);
         const tracks = Array.isArray(playlist.tracks) ? (playlist.tracks as unknown[]) : [];
         if (tracks.length > 0) {
@@ -475,7 +518,10 @@ export function DeezerLinkTab({
       parse={(url) => void parse(url)}
       isAlreadyLoaded={(url) => {
         const checked = deezerInputResult(url);
-        return checked.ok ? deezerAlreadyLoaded(playlistsRef.current, checked.id) : false;
+        // a Loved link has no id until the server resolves it: never "already loaded" here
+        return checked.ok && checked.id !== undefined
+          ? deezerAlreadyLoaded(playlistsRef.current, checked.id)
+          : false;
       }}
       onOpen={onOpen}
       historyOps={historyOps}
