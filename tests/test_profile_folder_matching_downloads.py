@@ -64,10 +64,14 @@ def _profile(db, name, prefix=None):
     return pid
 
 
+def _hit_now(db, title, artist):
+    track, _conf = db.check_track_exists(title, artist, confidence_threshold=0.7, server_source="navidrome")
+    return track.id if track else None
+
+
 def _hit(db, pid, title, artist):
     with _As(pid):
-        track, _conf = db.check_track_exists(title, artist, confidence_threshold=0.7, server_source="navidrome")
-    return track.id if track else None
+        return _hit_now(db, title, artist)
 
 
 # ── matching ─────────────────────────────────────────────────────────────────
@@ -110,7 +114,9 @@ def test_prebuilt_candidate_list_is_scoped_too(db):
         assert track is not None and track.id == "1"
 
 
-def test_cached_or_manual_match_outside_the_folder_is_rejected(db):
+def test_track_in_current_profile_folder_helper(db):
+    # used to reject a shared sync_match_cache hit; a user's explicit Find & Add
+    # (manual) match is deliberately still honoured outside the folder
     k = _profile(db, "k", "KMusic")
     with _As(k):
         assert db.track_in_current_profile_folder("1") is True
@@ -121,20 +127,21 @@ def test_cached_or_manual_match_outside_the_folder_is_rejected(db):
         assert db.track_in_current_profile_folder("4") is True     # admin: no scoping at all
 
 
-def test_sync_runs_as_the_playlist_owner(monkeypatch):
+def test_sync_runs_as_the_playlist_owner(db, monkeypatch):
     """sync_playlist must make the owner the current profile, or the scoping above
-    would read profile 1 inside the sync thread."""
+    would read profile 1 inside the sync and match everything."""
     from services.sync_service import PlaylistSyncService as SyncService
     svc = SyncService.__new__(SyncService)
+    k = _profile(db, "k", "KMusic")
     seen = []
 
     async def fake(self_, playlist, download_missing, profile_id, sync_mode):
-        seen.append(get_current_profile_id())
+        seen.append((get_current_profile_id(), _hit_now(db, "Tango Ballad", "ArtT"), _hit_now(db, "Kilo Anthem", "ArtK")))
         return "done"
 
     monkeypatch.setattr(SyncService, "_sync_playlist", fake)
-    assert asyncio.run(svc.sync_playlist(None, profile_id=3)) == "done"
-    assert seen == [3]
+    assert asyncio.run(svc.sync_playlist(None, profile_id=k)) == "done"
+    assert seen == [(k, None, "1")]      # T-only track is missing for K, K's own is found
     assert get_current_profile_id() == 1          # restored afterwards
 
 

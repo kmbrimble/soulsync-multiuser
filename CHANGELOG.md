@@ -11,14 +11,18 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
   and is downloaded. Scoped in `MusicDatabase` track matching (`check_track_exists` and its SQL:
   `_profile_folder_sql`), keyed by the current profile; `sync_playlist`, the missing-tracks analysis
   (`core/downloads/master.py`) and wishlist cleanup now run under `set_background_profile(owner)`. The
-  shared `sync_match_cache` is ignored when its hit lies outside the folder. Admin/unset: unchanged.
+  shared `sync_match_cache` is ignored when its hit lies outside the folder. A user's explicit Find &
+  Add (durable manual) match is still honoured outside the folder. Admin/unset: unchanged.
+- `library_root_for_profile` is shared, so imports, staging, playlist folders and materialisation for
+  such a profile also land in its folder (wider than wishlist/sync alone; intended).
 - Downloads attributable to such a profile (batch `profile_id`: wishlist, playlist sync, Download
   Missing) are organised under `<share root>/<prefix>/…` with the same templates, via
   `library_root_for_profile` → `core.profile_library_folder.folder_root_for_profile`. Share root is
   derived from config (nearest ancestor of `soulseek.transfer_path` holding the folder, else the
   `library.music_paths` entry containing it); not derivable → the shared folder, as before.
 - Freshness: the existing `_refresh_folder_map` hook already runs after every library update (incremental
-  too), so a landed download is mapped by the next SoulSync library sync; until then it counts as missing.
+  too), so a landed download is mapped by the next SoulSync library sync; until that sync it reads as
+  missing for the profile (same window as the `tracks` table itself).
 - New one-off `scripts/copy_profile_playlist_tracks.py --profile-id N [--apply]` (runbook in CLAUDE.md).
 - Tests: `tests/test_profile_folder_matching_downloads.py`, `tests/test_copy_profile_playlist_tracks.py`;
   `test_track_search_used_by_matching_ignores_prefix` inverted (matching now takes the prefix by design).

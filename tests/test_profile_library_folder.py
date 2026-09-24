@@ -1,7 +1,9 @@
 """Per-profile library folder: profile K sees only ``KMusic/`` on the Library
 page, T only ``TMusic/``; admin and unset profiles see everything.
 
-Real (temp) DB, no network. Playlist sync / matching must NOT take the prefix.
+Real (temp) DB, no network. Matching is folder-scoped too now
+(tests/test_profile_folder_matching_downloads.py); the source-guard test below
+only keeps the *map plumbing* names out of the sync/matching modules.
 """
 
 from __future__ import annotations

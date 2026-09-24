@@ -5773,6 +5773,7 @@ class MusicDatabase:
         prefix = normalize_prefix(self.get_profile_library_prefix())
         if not prefix:
             return tracks
+        # ponytail: loads every folder row per call (~14k for T); chunk by track id if it shows in profiles
         sql, params = track_path_sql(prefix, 'rel_path')
         with self._get_connection() as conn:
             ids = {r[0] for r in conn.execute(f"SELECT track_id FROM track_library_folder WHERE {sql}", params)}
