@@ -304,7 +304,20 @@ def _run_service_export(job, db, playlist_id, title, service, client, resolve_id
         job['error'] = res.get('error') or f"{service.title()} push failed"
 
 
-def _run_playlist_export(job_id, playlist_id, title, mode):
+def _deezer_export_client(profile_id):
+    """Deezer write client for an export. Admin keeps upstream behaviour (global ARL). A
+    non-admin profile must use its OWN ARL: falling back to the global one would create the
+    playlist in the ARL owner's account, so refuse (None) instead."""
+    from core.deezer_download_client import DeezerDownloadClient
+    if not profile_id or profile_id == 1:
+        return DeezerDownloadClient()
+    from core.profile_deezer import resolve_deezer_dl_client
+    fallback = object()
+    client = resolve_deezer_dl_client(fallback, profile_id)
+    return None if client is fallback else client
+
+
+def _run_playlist_export(job_id, playlist_id, title, mode, profile_id=1):
     job = _playlist_export_jobs[job_id]
     try:
         # Service export (#945) — resolve to Spotify/Deezer track IDs and push.
@@ -313,8 +326,11 @@ def _run_playlist_export(job_id, playlist_id, title, mode):
             if mode == 'spotify':
                 client = get_spotify_client()
             else:
-                from core.deezer_download_client import DeezerDownloadClient
-                client = DeezerDownloadClient()
+                client = _deezer_export_client(profile_id)
+                if client is None:
+                    job['phase'] = 'error'
+                    job['error'] = "Connect your Deezer account under My Accounts to export playlists to Deezer"
+                    return
             _run_service_export(job, db, playlist_id, title, mode, client)
             return
 
@@ -428,8 +444,10 @@ def start_playlist_export_service(playlist_id, service):
                 'mode': service, 'backfill': backfill, 'phase': 'starting', 'done': 0,
                 'total': 0, 'stats': {}, 'error': None,
             }
+        # The worker thread has no request context, so capture the profile here.
         t = threading.Thread(target=_run_playlist_export,
-                             args=(job_id, playlist_id, title, service), daemon=True)
+                             args=(job_id, playlist_id, title, service),
+                             kwargs={'profile_id': get_current_profile_id()}, daemon=True)
         t.start()
         return jsonify({"success": True, "job_id": job_id})
     except Exception as e:

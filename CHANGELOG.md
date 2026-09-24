@@ -19,6 +19,14 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
   URLs client-side and the `/api/deezer/playlist/<id>` path can't carry a slashed URL, so it
   needs a webui change.
 
+### 2026-09-24 — Fix: Deezer playlist export wrote into the global ARL owner's account
+- Exporting a mirrored playlist to Deezer always logged in with the global ARL, so profile K/T's
+  export landed in the ARL owner's account. The export worker now receives the requesting
+  profile and uses that profile's own Deezer client. A non-admin profile with no ARL of its own
+  is refused ("Connect your Deezer account under My Accounts…") rather than writing into another
+  person's account. Admin (profile 1) is unchanged. `create_or_update_playlist` is the only
+  Deezer write path in the codebase.
+
 ### 2026-09-24 — Per-profile Deezer ARL
 - Each non-admin profile can set its own Deezer ARL (My Accounts → Deezer). The Sync page's
   "My Deezer playlists" and Discover "Your Artists/Albums" then use *that* account instead of the
