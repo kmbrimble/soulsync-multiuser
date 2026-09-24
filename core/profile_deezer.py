@@ -46,7 +46,9 @@ def resolve_deezer_dl_client(global_client, profile_id=None):
         from core.deezer_download_client import DeezerDownloadClient
         # ponytail: login runs under the lock (a few profiles, rare); per-profile locks if that grows
         client = DeezerDownloadClient(arl=arl)
-        _clients[profile_id] = (arl, client)
+        # cache only a working login, so a transient failure is retried on the next request
+        if client.is_authenticated():
+            _clients[profile_id] = (arl, client)
         return client
 
 

@@ -154,6 +154,16 @@ def test_changing_or_removing_the_arl_drops_the_cached_client(db):
     assert resolve_deezer_dl_client(g, k) is g
 
 
+def test_a_failed_login_is_not_cached_so_it_is_retried(db, monkeypatch):
+    from core.profile_deezer import resolve_deezer_dl_client
+    k = _profile(db, 'k')
+    db.set_profile_deezer_arl(k, ARL_K)
+    monkeypatch.setattr(FakeDeezer, 'is_authenticated', lambda self: False)
+    first = resolve_deezer_dl_client(object(), k)
+    assert resolve_deezer_dl_client(object(), k) is not first   # rebuilt, not stuck
+    assert FakeDeezer.built == [ARL_K, ARL_K]
+
+
 def test_unreadable_profile_row_never_falls_back_to_global(db, monkeypatch):
     from core import profile_deezer
     k = _profile(db, 'k')
