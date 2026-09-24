@@ -28,6 +28,31 @@ Fork work (each a separate `/feature` run) — all shipped and deployed 24–25 
 Known follow-ups (not done): pasting a `deezer.com/…/loved` URL on the Sync page (needs webui);
 `collect_known_signals` autocomplete is still admin+system only.
 
+## Per-profile music folder (matching, downloads, one-off copy)
+
+A profile with `profiles.library_path_prefix` (K=`KMusic`, T=`TMusic`) matches playlists only against
+`track_library_folder.rel_path` under that folder (unmapped = missing) and its downloads (batch
+`profile_id`) are organised in `<share root>/<prefix>/…` (`library_root_for_profile`). Admin/unset are
+unchanged. New downloads are only known to the matcher after a SoulSync library sync refreshes the map.
+
+**Runbook: bring existing playlist tracks into K's and T's folders** (orchestrator runs it; SoulSync
+container is `SoulSync` — adjust the name; profile ids K=2, T=3 — verify in Settings > Profiles):
+
+1. Dry run, review the manifests and totals (writes only a CSV under `/tmp` in the container):
+   `docker exec SoulSync python scripts/copy_profile_playlist_tracks.py --profile-id 2`
+   `docker exec SoulSync python scripts/copy_profile_playlist_tracks.py --profile-id 3`
+   (`--manifest PATH` to choose the CSV; `--share-root /host/music` if config derivation fails; a
+   profile with no Navidrome login of its own needs `--owner <navidrome user>` to use the admin login.)
+2. Apply for K and T (reflink copies; never moves/deletes/overwrites; re-running is safe):
+   `docker exec SoulSync python scripts/copy_profile_playlist_tracks.py --profile-id 2 --apply`
+   `docker exec SoulSync python scripts/copy_profile_playlist_tracks.py --profile-id 3 --apply`
+3. Navidrome rescan (Navidrome UI > Activity/Settings, or `POST /rest/startScan` as admin) and wait for it.
+4. SoulSync library sync (Dashboard/Tools > Database Update); it also rebuilds the folder map
+   (`_refresh_folder_map`). Check `SELECT count(*) FROM track_library_folder WHERE rel_path LIKE 'KMusic/%'`
+   grew by roughly the copied count.
+5. Re-sync each profile's playlists as that profile (Sync page); tracks now match in the profile's
+   own folder, so only genuinely missing ones go to that profile's wishlist.
+
 ## Test and lint (mirror `.github/workflows/build-and-test.yml`)
 
 Python venv lives at `.venv` in the shared checkout (Python 3.11, created with uv). In a

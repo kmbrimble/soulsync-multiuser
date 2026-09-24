@@ -158,7 +158,8 @@ async def _database_only_find_track(spotify_track, candidate_pool=None):
         if spotify_id:
             try:
                 cached = db.read_sync_match_cache(spotify_id, active_server)
-                if cached:
+                # the cache is shared by every profile: skip a match outside the folder
+                if cached and db.track_in_current_profile_folder(cached['server_track_id']):
                     db_track_check = db.get_track_by_id(cached['server_track_id'])
                     if db_track_check:
                         class DatabaseTrackCached:

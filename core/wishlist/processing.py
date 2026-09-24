@@ -590,6 +590,7 @@ def remove_tracks_already_in_library(
             cleanup_tracks.append((pid, t))
 
     from core.library_scope import library_scope_for_profile, reset_library_scope, set_library_scope
+    from core.profile_context import reset_background_profile, set_background_profile
 
     cleanup_removed = 0
     for profile_id, track in cleanup_tracks:
@@ -600,11 +601,15 @@ def remove_tracks_already_in_library(
         # own-library profile's wishlist entry is not cleared by the admin
         # owning the track
         _scope_token = set_library_scope(library_scope_for_profile(profile_id))
+        # fork: same for a folder-limited profile: only its own folder counts as owned
+        _bg_token = set_background_profile(profile_id) if profile_id else None
         try:
             removed_here = _cleanup_one(
                 wishlist_service, music_database, _mlm, profile_id, track, active_server,
                 logger=logger, log_prefix=log_prefix)
         finally:
+            if _bg_token is not None:
+                reset_background_profile(_bg_token)
             reset_library_scope(_scope_token)
         cleanup_removed += removed_here
     return cleanup_removed

@@ -206,6 +206,13 @@ def reset_own_library_fallback_notifications() -> None:
 
 
 def library_root_for_profile(profile_id) -> Optional[str]:
+    """the output folder of a profile (docker-resolved): its own library's root,
+    else (fork) its ``<share root>/<library folder>``; None on the shared library."""
+    from core.profile_library_folder import folder_root_for_profile
+    return _own_library_root(profile_id) or folder_root_for_profile(profile_id)
+
+
+def _own_library_root(profile_id) -> Optional[str]:
     """the own-library output folder of a profile (docker-resolved), or None
     when the profile is on the shared library."""
     if not profile_id:

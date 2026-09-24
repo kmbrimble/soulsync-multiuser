@@ -3,14 +3,21 @@
 only tracks stored under that folder. Empty = everything (upstream behaviour);
 the admin profile is never limited.
 
-This is a *view* filter for the Library page queries only. It is deliberately
-not part of ``core.library_scope`` (which sync and matching also read): playlist
-sync, matching and the wishlist keep seeing the whole library.
+The same folder also scopes playlist matching ("is this track already in *my*
+library?", see ``MusicDatabase._profile_folder_sql``) and is where that profile's
+downloads are organised (``folder_root_for_profile``, read by
+``core.imports.paths.library_root_for_profile``). It is deliberately not part of
+``core.library_scope`` (the plex/jellyfin own-library mechanism).
 """
 
 from __future__ import annotations
 
-from typing import List, Tuple
+import os
+from typing import List, Optional, Tuple
+
+from utils.logging_config import get_logger
+
+logger = get_logger("profile_library_folder")
 
 
 def normalize_prefix(raw) -> str:
@@ -33,3 +40,46 @@ def track_path_sql(prefix: str, column: str = 't.file_path') -> Tuple[str, List[
         clauses.append(f"substr({column}, 1, {len(v)}) = ?")
         params.append(v)
     return '(' + ' OR '.join(clauses) + ')', params
+
+
+def _share_root(prefix: str) -> Optional[str]:
+    """The music share root, derived from config: the nearest ancestor of the
+    transfer folder that already holds ``prefix``, else a ``library.music_paths``
+    entry that contains the transfer folder."""
+    from core.imports.paths import _get_config_manager, config_root_path
+    cfg = _get_config_manager()
+    transfer = config_root_path(cfg.get("soulseek.transfer_path", "./Transfer"), "./Transfer")
+    d = transfer
+    while os.path.dirname(d) != d:
+        d = os.path.dirname(d)
+        if os.path.isdir(os.path.join(d, prefix)):
+            return d
+    music_paths = cfg.get("library.music_paths", []) or []
+    for p in [music_paths] if isinstance(music_paths, str) else music_paths:
+        root = config_root_path(p)
+        if root and transfer.startswith(root.rstrip("/") + "/"):
+            return root
+    return None
+
+
+def folder_root_for_profile(profile_id, db=None) -> Optional[str]:
+    """``<share root>/<prefix>`` where a folder-limited profile's downloads go, or
+    None (admin, no folder, or no share root derivable: the shared transfer folder)."""
+    if not profile_id or int(profile_id) == 1:
+        return None
+    try:
+        if db is None:
+            from database.music_database import get_database
+            db = get_database()
+        prefix = normalize_prefix(db.get_profile_library_prefix(int(profile_id))).strip("/")
+    except Exception as exc:  # noqa: BLE001 - no folder known: shared folder
+        logger.debug("profile folder lookup failed for %s: %s", profile_id, exc)
+        return None
+    if not prefix or ".." in prefix.split("/"):
+        return None
+    root = _share_root(prefix)
+    if not root:
+        logger.warning("profile %s has folder %r but the music share root cannot be derived "
+                       "from config; downloads stay in the shared folder", profile_id, prefix)
+        return None
+    return os.path.join(root, prefix)

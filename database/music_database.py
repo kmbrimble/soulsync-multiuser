@@ -5751,6 +5751,33 @@ class MusicDatabase:
         return (f"EXISTS (SELECT 1 FROM track_library_folder tlf WHERE tlf.track_id = {alias}.id AND {sql})",
                 params)
 
+    def _profile_folder_sql(self, alias: str = 'tracks') -> Tuple[str, list]:
+        """the current profile's folder as a WHERE fragment for playlist matching
+        ("is it already in MY library"); ``1=1`` for admin / an unset folder."""
+        return self._folder_track_sql(self.get_profile_library_prefix(), alias)
+
+    def track_in_current_profile_folder(self, track_id) -> bool:
+        """is this track inside the current profile's folder (True when it has none)."""
+        sql, params = self._profile_folder_sql('t')
+        if not params:
+            return True
+        if track_id is None:
+            return False
+        with self._get_connection() as conn:
+            return conn.execute(f"SELECT 1 FROM tracks t WHERE t.id = ? AND {sql}",
+                                (str(track_id), *params)).fetchone() is not None
+
+    def _tracks_in_current_profile_folder(self, tracks):
+        """the given track objects that lie in the current profile's folder."""
+        from core.profile_library_folder import normalize_prefix, track_path_sql
+        prefix = normalize_prefix(self.get_profile_library_prefix())
+        if not prefix:
+            return tracks
+        sql, params = track_path_sql(prefix, 'rel_path')
+        with self._get_connection() as conn:
+            ids = {r[0] for r in conn.execute(f"SELECT track_id FROM track_library_folder WHERE {sql}", params)}
+        return [t for t in tracks if str(t.id) in ids]
+
     def _add_track_library_folder(self, cursor):
         """track id -> Navidrome library-relative path (fork); see core.navidrome_folder_map."""
         cursor.execute("""CREATE TABLE IF NOT EXISTS track_library_folder (
@@ -10262,6 +10289,10 @@ class MusicDatabase:
         scope_sql, scope_params = self._current_scope_sql('tracks.owner_profile_id')
         where_conditions.append(scope_sql)
         params.extend(scope_params)
+        # a folder-limited profile only matches its own folder
+        folder_sql, folder_params = self._profile_folder_sql('tracks')
+        where_conditions.append(folder_sql)
+        params.extend(folder_params)
 
         where_clause = " AND ".join(where_conditions)
 
@@ -10393,6 +10424,9 @@ class MusicDatabase:
         scope_sql, scope_params = self._current_scope_sql('tracks.owner_profile_id')
         where_parts.append(scope_sql)
         params.extend(scope_params)
+        folder_sql, folder_params = self._profile_folder_sql('tracks')
+        where_parts.append(folder_sql)
+        params.extend(folder_params)
 
         where_clause = " AND ".join(where_parts)
         params.append(limit * 3)
@@ -10645,6 +10679,9 @@ class MusicDatabase:
         scope_sql, scope_params = self._current_scope_sql('tracks.owner_profile_id')
         sql += f" AND {scope_sql}"
         params.extend(scope_params)
+        folder_sql, folder_params = self._profile_folder_sql('tracks')
+        sql += f" AND {folder_sql}"
+        params.extend(folder_params)
         sql += " LIMIT ?"
         params.append(limit)
         cursor.execute(sql, params)
@@ -10698,6 +10735,7 @@ class MusicDatabase:
             best_confidence = 0.0
 
             if candidate_tracks is not None:
+                candidate_tracks = self._tracks_in_current_profile_folder(candidate_tracks)
                 # BATCHED PATH — score every pre-fetched track in-memory.
                 # _calculate_track_confidence already handles title normalization,
                 # so no need for the per-variation SQL widening.
@@ -10795,13 +10833,14 @@ class MusicDatabase:
                         cursor = conn.cursor()
                         source_filter = "AND t.server_source = ?" if server_source else ""
                         params = [album_candidate.id] + ([server_source] if server_source else [])
+                        folder_sql, folder_params = self._profile_folder_sql('t')
                         cursor.execute(f"""
                             SELECT t.*, a.name as artist_name, al.title as album_title
                             FROM tracks t
                             JOIN artists a ON a.id = t.artist_id
                             JOIN albums al ON al.id = t.album_id
-                            WHERE t.album_id = ? {source_filter}
-                        """, params)
+                            WHERE t.album_id = ? {source_filter} AND {folder_sql}
+                        """, params + folder_params)
 
                         for row in cursor.fetchall():
                             # DatabaseTrack is a strict dataclass — only the declared

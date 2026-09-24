@@ -166,11 +166,12 @@ def test_full_detail_is_scoped(db):
 
 # ── matching / sync must not take the prefix ─────────────────────────────────
 
-def test_track_search_used_by_matching_ignores_prefix(db):
+def test_track_search_used_by_matching_takes_the_prefix(db):
+    # superseded: matching is folder-scoped now (test_profile_folder_matching_downloads.py)
     k = _profile(db, "k", "KMusic")
     with _As(k):
-        hits = db.search_tracks(title="t3", artist="")
-    assert [h.id for h in hits] == ["3"], "K's playlist match must still see TMusic (AT track 2)"
+        assert db.search_tracks(title="t3", artist="") == [], "TMusic track 3 is missing for K"
+        assert [h.id for h in db.search_tracks(title="t1", artist="")] == ["1"]
 
 
 @pytest.mark.parametrize("rel", [

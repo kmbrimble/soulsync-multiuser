@@ -495,11 +495,17 @@ class PlaylistSyncService:
         # the library scope rides along: "do we own this" is answered through
         # the profile's library, not the app account's (#1199)
         from core.library_scope import library_scope_for_profile, reset_library_scope, set_library_scope
+        from core.profile_context import reset_background_profile, set_background_profile
         _profile_token = _sync_profile_id.set(profile_id)
         _scope_token = set_library_scope(library_scope_for_profile(profile_id))
+        # library matching below reads the current profile (fork: folder-limited
+        # profiles only match their own folder)
+        _bg_token = set_background_profile(profile_id) if profile_id else None
         try:
             return await self._sync_playlist(playlist, download_missing, profile_id, sync_mode)
         finally:
+            if _bg_token is not None:
+                reset_background_profile(_bg_token)
             reset_library_scope(_scope_token)
             _sync_profile_id.reset(_profile_token)
 
@@ -973,7 +979,9 @@ class PlaylistSyncService:
                 # 1) Volatile sync_match_cache — fast, but wiped on every library rescan.
                 try:
                     cached = cache_db.read_sync_match_cache(spotify_id, active_server)
-                    if cached:
+                    # the cache is shared by every profile: a match in someone
+                    # else's folder is not a hit for a folder-limited profile
+                    if cached and cache_db.track_in_current_profile_folder(cached['server_track_id']):
                         actual_track = _materialize(cached['server_track_id'])
                         if actual_track:
                             logger.debug(f"Sync cache hit: '{original_title}' → server track {cached['server_track_id']}")

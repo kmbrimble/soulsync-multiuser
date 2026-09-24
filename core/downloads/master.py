@@ -466,9 +466,14 @@ def run_full_missing_tracks_process(batch_id, playlist_id, tracks_json, deps: Ma
     with tasks_lock:
         _batch_profile = (download_batches.get(batch_id) or {}).get('profile_id')
     _scope_token = set_library_scope(library_scope_for_profile(_batch_profile))
+    # fork: a folder-limited profile only counts tracks in its own folder as owned
+    from core.profile_context import reset_background_profile, set_background_profile
+    _bg_token = set_background_profile(_batch_profile) if _batch_profile else None
     try:
         return _run_full_missing_tracks_process(batch_id, playlist_id, tracks_json, deps, serialize)
     finally:
+        if _bg_token is not None:
+            reset_background_profile(_bg_token)
         reset_library_scope(_scope_token)
 
 
