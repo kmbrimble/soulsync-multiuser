@@ -9957,15 +9957,17 @@ class MusicDatabase:
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
-            cursor.execute("""
+            # fork: a folder-limited requester exports only their folder
+            t_sql, t_params = self._folder_track_sql(self.get_profile_library_prefix(), 't')
+            cursor.execute(f"""
                 SELECT t.file_path AS path, t.title AS title, ar.name AS artist,
                        t.duration AS duration_ms, t.track_number AS track_number
                 FROM tracks t
                 LEFT JOIN artists ar ON ar.id = t.artist_id
                 LEFT JOIN albums al ON al.id = t.album_id
-                WHERE t.file_path IS NOT NULL AND t.file_path != ''
+                WHERE t.file_path IS NOT NULL AND t.file_path != '' AND {t_sql}
                 ORDER BY ar.name COLLATE NOCASE, al.title COLLATE NOCASE, t.track_number
-            """)
+            """, t_params)
             out: List[Dict[str, Any]] = []
             for row in cursor.fetchall():
                 dur_ms = row['duration_ms']

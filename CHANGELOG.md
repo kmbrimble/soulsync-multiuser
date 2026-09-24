@@ -44,9 +44,12 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 - Scoped (limited profiles only): Library page artist list + its pagination total and per-artist
   album/track counts (`get_library_artists`), artist page discography (`get_artist_discography`) and
   the enhanced artist view (`get_artist_full_detail`), and the unmatched-import banner
-  (`/api/library/unmatched-summary`). NOT scoped (decision): playlist sync, matching, wishlist,
-  `search_tracks` / `/api/library/search-tracks` (manual-match tool), dashboard/database stats,
-  `POST /api/library/watchlist-all-unwatched`, `/api/library/export/m3u`, `core.library_scope`.
+  (`/api/library/unmatched-summary`), the Library page's exports (`/api/library/artists/export`,
+  `/api/library/export/m3u`), and "watch all" (`POST /api/library/watchlist-all-unwatched`, which
+  reads the scoped artist list). The Library page lists artists only; album/track views are the
+  artist page. NOT scoped (decision): playlist sync, matching, wishlist,
+  `search_tracks` / `/api/library/search-tracks` (manual-match tool), `/api/library/check-tracks`,
+  dashboard/database stats, `core.library_scope`.
   The public `/api/v1/library/artists` passes its explicit `profile_id`, so it scopes too.
 - API only, no settings UI yet.
 

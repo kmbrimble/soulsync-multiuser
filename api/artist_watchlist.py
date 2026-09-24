@@ -491,24 +491,33 @@ def export_library_artists():
         include_links = request.args.get('links', '') in ('1', 'true', 'yes')
         include_contents = request.args.get('contents', '') in ('1', 'true', 'yes')
         database = get_database()
+        # fork: a folder-limited profile exports only artists/albums/tracks in its folder
+        t_sql, t_params = database._folder_track_sql(database.get_profile_library_prefix(), 't')
+        limited = t_sql != '1=1'
         conn = database._get_connection()
         try:
             cur = conn.cursor()
-            cur.execute("""
+            cur.execute(f"""
                 SELECT id, name, spotify_artist_id, musicbrainz_id, deezer_id,
                        discogs_id, itunes_artist_id, tidal_id, qobuz_id, amazon_id,
                        lastfm_url, genius_url, soul_id
-                FROM artists ORDER BY name COLLATE NOCASE
-            """)
+                FROM artists
+                WHERE (NOT ? OR EXISTS (SELECT 1 FROM tracks t WHERE t.artist_id = artists.id AND {t_sql}))
+                ORDER BY name COLLATE NOCASE
+            """, (int(limited), *t_params))
             cols = [d[0] for d in cur.description]
             rows = [dict(zip(cols, r, strict=False)) for r in cur.fetchall()]
 
             counts = {}
             if include_contents:
+                count_sql = {
+                    'albums': (f"SELECT artist_id, COUNT(*) FROM albums al WHERE EXISTS "
+                               f"(SELECT 1 FROM tracks t WHERE t.album_id = al.id AND {t_sql}) GROUP BY artist_id"),
+                    'tracks': f"SELECT artist_id, COUNT(*) FROM tracks t WHERE {t_sql} GROUP BY artist_id",
+                }
                 for table, key in (('albums', 'album_count'), ('tracks', 'track_count')):
                     try:
-                        for aid, n in cur.execute(
-                                f"SELECT artist_id, COUNT(*) FROM {table} GROUP BY artist_id"):
+                        for aid, n in cur.execute(count_sql[table], t_params):
                             counts.setdefault(str(aid), {})[key] = n
                     except Exception:  # noqa: S110 — counts are best-effort
                         pass

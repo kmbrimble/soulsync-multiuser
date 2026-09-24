@@ -190,6 +190,34 @@ def test_shared_scope_sql_does_not_take_prefix(db):
     assert "file_path" not in sql and "track_library_folder" not in sql and params == []
 
 
+def test_m3u_export_is_scoped(db):
+    with _As(1):
+        assert len(db.get_all_library_tracks_for_export()) == 10      # everything, unmapped included
+    with _As(_profile(db, "k", "KMusic")):
+        assert len(db.get_all_library_tracks_for_export()) == 4      # AK 1, B1 2, Slash 1
+    with _As(_profile(db, "t", "TMusic")):
+        assert len(db.get_all_library_tracks_for_export()) == 3      # AT 2, B2 1
+
+
+def test_artist_roster_export_is_scoped(db, monkeypatch):
+    import json
+
+    from flask import Flask
+
+    import api.artist_watchlist as aw
+    monkeypatch.setattr(aw, 'get_database', lambda: db)
+
+    def export(pid):
+        with _As(pid), Flask(__name__).test_request_context('/api/library/artists/export?format=json&contents=1'):
+            body = json.loads(aw.export_library_artists().get_data(as_text=True))
+        rows = body if isinstance(body, list) else next(v for v in body.values() if isinstance(v, list))
+        return {r['name']: r.get('track_count') for r in rows}
+
+    assert set(export(1)) == {"ArtK", "ArtT", "Both", "Old", "Shared", "Slash", "Unmapped"}
+    assert export(_profile(db, "k", "KMusic")) == {"ArtK": 1, "Both": 2, "Slash": 1}
+    assert export(_profile(db, "t", "TMusic")) == {"ArtT": 2, "Both": 1}
+
+
 def test_unmatched_banner_is_scoped(db):
     c = sqlite3.connect(str(db.database_path))
     c.execute("INSERT INTO artists (id, name, server_source) VALUES (8, 'Unknown Artist', 'plex')")
