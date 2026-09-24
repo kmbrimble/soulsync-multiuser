@@ -86,7 +86,7 @@ from core.download_plugins.base import DownloadSourcePlugin
 class DeezerDownloadClient(DownloadSourcePlugin):
     """Deezer download client using ARL token authentication."""
 
-    def __init__(self, download_path: str = None):
+    def __init__(self, download_path: str = None, arl: str = None):
         from core.settings import config_manager
         self._config = config_manager
 
@@ -127,7 +127,8 @@ class DeezerDownloadClient(DownloadSourcePlugin):
         self._quality = quality_tier_for_source('deezer', default='flac')
 
         # Try to authenticate on init if ARL is configured
-        arl = config_manager.get('deezer_download.arl', '')
+        # an explicit ARL is a per-profile client (core/profile_deezer.py); none = the global one
+        arl = arl or config_manager.get('deezer_download.arl', '')
         if arl:
             from core.boot_phase import is_boot_phase
             if is_boot_phase():

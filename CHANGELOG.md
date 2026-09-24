@@ -4,6 +4,26 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-09-24 — Per-profile Deezer ARL
+- Each non-admin profile can set its own Deezer ARL (My Accounts → Deezer). The Sync page's
+  "My Deezer playlists" and Discover "Your Artists/Albums" then use *that* account instead of the
+  global ARL owner's. Admin and profiles without an ARL behave exactly as before (global client).
+- Storage: new nullable column, added by an idempotent migration (`_add_profile_deezer_arl`):
+  `ALTER TABLE profiles ADD COLUMN deezer_arl TEXT DEFAULT NULL` — fernet-encrypted like the
+  Navidrome password. New `core/profile_deezer.py` resolver (cached per profile, rebuilt when the
+  ARL changes); `DeezerDownloadClient(arl=...)` builds a dedicated client without touching global
+  config or the global session. If a profile's row can't be read the resolver returns no client
+  rather than falling back to the global one.
+- API: `GET/POST/DELETE /api/profiles/me/deezer-arl` (POST live-logs-in before saving; GET never
+  returns the ARL; admin is refused — managed in Settings). `/api/profiles/me/connections` gains `deezer`.
+- Async playlist loads capture the requesting profile; job dedupe is per profile and another
+  profile's job id returns 404 from `/api/deezer/playlist-load/<id>`.
+- Switched to the resolver: `/api/deezer/arl-status`, `arl-playlists`, `arl-playlist/<id>` (sync
+  and async job), Discover your-artists/your-albums fetch and their `/sources` connected checks.
+- Left on the GLOBAL ARL (explicit non-goal, shared library): audio downloads via the `deezer_dl`
+  source, `/api/deezer-download/test*`, Deezer playlist export.
+- Tests: `tests/test_profile_deezer_arl.py`.
+
 ### 2026-09-24 — Fix: non-admin profiles' automations never scheduled
 - Added `MusicDatabase.get_all_automations()`; `get_automations()` is untouched (a `None`
   profile sentinel would have leaked all profiles to unauthenticated requests).

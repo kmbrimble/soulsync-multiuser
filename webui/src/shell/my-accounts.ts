@@ -23,6 +23,10 @@ interface MaService {
   dark?: boolean;
   type?: 'token';
   saveUrl?: string;
+  /** JSON body key the pasted value is sent under (default 'token'). */
+  bodyKey?: string;
+  /** DELETE endpoint used instead of the generic disconnect route. */
+  disconnectUrl?: string;
   hint?: string;
   connect?: (pid: number) => string;
 }
@@ -46,6 +50,15 @@ const _MA_SERVICES: MaService[] = [
     type: 'token',
     saveUrl: '/api/profiles/me/listenbrainz',
     hint: 'Paste your token from listenbrainz.org/profile',
+  },
+  {
+    id: 'deezer', name: 'Deezer', brand: '#a238ff',
+    logo: '/static/img/brands/deezer.png',
+    type: 'token',
+    saveUrl: '/api/profiles/me/deezer-arl',
+    bodyKey: 'arl',
+    disconnectUrl: '/api/profiles/me/deezer-arl',
+    hint: 'Paste your Deezer ARL cookie (deezer.com > browser dev tools > cookies > arl)',
   },
 ];
 
@@ -116,6 +129,16 @@ async function _maLoad(): Promise<void> {
   } catch {
     /* render disconnected */
   }
+  // Deezer's connected-as name needs a login round trip, so it is fetched only when connected.
+  const dz = data?.connections?.deezer;
+  if (dz?.connected) {
+    try {
+      const r = (await (await fetch('/api/profiles/me/deezer-arl')).json()) as { user_name?: string };
+      if (r.user_name) dz.account = r.user_name;
+    } catch {
+      /* show plain "Connected" */
+    }
+  }
   _maRender(body, data || { connections: {}, is_admin: false });
 }
 
@@ -183,13 +206,13 @@ export async function saveMyAccountToken(serviceId: string): Promise<void> {
   const input = document.getElementById(`ma-token-${serviceId}`) as HTMLInputElement | null;
   const token = ((input && input.value) || '').trim();
   if (!token) {
-    toast('Paste a token first', 'info');
+    toast(svc.bodyKey === 'arl' ? 'Paste your ARL first' : 'Paste a token first', 'info');
     return;
   }
   try {
     const res = await fetch(svc.saveUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ [svc.bodyKey || 'token']: token }),
     });
     const data = (await res.json()) as { success?: boolean; error?: string };
     if (data.success) {
@@ -206,7 +229,10 @@ export async function saveMyAccountToken(serviceId: string): Promise<void> {
 export async function disconnectMyAccount(serviceId: string): Promise<void> {
   if (!confirm(`Disconnect your ${serviceId} account from this profile?`)) return;
   try {
-    const res = await fetch(`/api/profiles/me/connections/${serviceId}/disconnect`, { method: 'POST' });
+    const svc = _MA_SERVICES.find((s) => s.id === serviceId);
+    const res = svc?.disconnectUrl
+      ? await fetch(svc.disconnectUrl, { method: 'DELETE' })
+      : await fetch(`/api/profiles/me/connections/${serviceId}/disconnect`, { method: 'POST' });
     const data = (await res.json()) as { success?: boolean; error?: string };
     if (data.success) {
       toast('Disconnected', 'success');

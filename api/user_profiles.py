@@ -878,6 +878,7 @@ def get_my_connections():
         sp_connected, sp_account = _profile_spotify_connection(pid)
         td_connected, td_account = _profile_tidal_connection(pid)
         lb_connected, lb_account = _profile_listenbrainz_connection(pid)
+        dz_connected, dz_account = _profile_deezer_connection(pid)
         return jsonify({
             'success': True,
             'is_admin': pid == 1,
@@ -885,6 +886,7 @@ def get_my_connections():
                 'spotify': {'connected': sp_connected, 'account': sp_account},
                 'tidal': {'connected': td_connected, 'account': td_account},
                 'listenbrainz': {'connected': lb_connected, 'account': lb_account},
+                'deezer': {'connected': dz_connected, 'account': dz_account},
             },
         })
     except Exception as e:
@@ -1094,6 +1096,72 @@ def clear_profile_navidrome_login():
     """back to the app account for this profile."""
     try:
         get_database().set_profile_navidrome_login(get_current_profile_id(), None, None)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _profile_deezer_connection(profile_id):
+    """(connected, display_name) for a profile's OWN Deezer ARL. Cheap: no network."""
+    if not profile_id or profile_id == 1:
+        return (False, None)
+    try:
+        return (bool(get_database().get_profile_deezer_arl(profile_id)), None)
+    except Exception as e:
+        logger.debug("profile %s deezer connection check failed: %s", profile_id, e)
+        return (False, None)
+
+
+@bp.route('/api/profiles/me/deezer-arl', methods=['GET'])
+def get_profile_deezer_arl():
+    """whether this profile has its own Deezer ARL. never returns the ARL."""
+    try:
+        from core import profile_deezer
+        pid = get_current_profile_id()
+        configured = _profile_deezer_connection(pid)[0]
+        user_name = None
+        if configured:
+            c = profile_deezer.resolve_deezer_dl_client(None, pid)
+            if c is not None and c.is_authenticated():
+                user_name = (c._user_data or {}).get('BLOG_NAME')
+        return jsonify({'success': True, 'configured': configured, 'user_name': user_name})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/profiles/me/deezer-arl', methods=['POST'])
+def save_profile_deezer_arl():
+    """save this profile's own Deezer ARL. it is logged in live first, so a bad
+    one is refused here and nothing is stored."""
+    try:
+        from core import profile_deezer
+        pid = get_current_profile_id()
+        if not pid or pid == 1:
+            return jsonify({'success': False, 'error': 'The admin account is managed in Settings'}), 400
+        arl = str((request.json or {}).get('arl') or '').strip()
+        if not arl:
+            return jsonify({'success': False, 'error': 'Paste your Deezer ARL'}), 400
+        ok, user_name = profile_deezer.verify_arl(arl)
+        if not ok:
+            return jsonify({'success': False, 'error': 'Deezer refused this ARL'}), 400
+        if not get_database().set_profile_deezer_arl(pid, arl):
+            return jsonify({'success': False, 'error': 'Failed to save ARL'}), 500
+        profile_deezer.clear_profile_deezer_client(pid)
+        return jsonify({'success': True, 'user_name': user_name})
+    except Exception as e:
+        # never echo the exception blindly: keep the ARL out of the response and log
+        logger.error("saving profile Deezer ARL failed: %s", type(e).__name__)
+        return jsonify({'success': False, 'error': 'Could not save the ARL'}), 500
+
+
+@bp.route('/api/profiles/me/deezer-arl', methods=['DELETE'])
+def clear_profile_deezer_arl():
+    """back to the app's Deezer account for this profile."""
+    try:
+        from core import profile_deezer
+        pid = get_current_profile_id()
+        get_database().set_profile_deezer_arl(pid, None)
+        profile_deezer.clear_profile_deezer_client(pid)
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

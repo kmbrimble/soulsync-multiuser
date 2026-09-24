@@ -1079,6 +1079,7 @@ class MusicDatabase:
             self._add_profile_recovery_support(cursor)
             self._add_profile_service_credentials(cursor)
             self._add_profile_navidrome_login(cursor)
+            self._add_profile_deezer_arl(cursor)
             self._add_profile_plex_home_user(cursor)
             self._add_own_library_columns(cursor)
             self._repair_own_jellyfin_artist_ids(cursor)
@@ -5661,6 +5662,44 @@ class MusicDatabase:
                 cursor.execute(sql)
             except sqlite3.OperationalError:
                 pass  # Column already exists
+
+    def _add_profile_deezer_arl(self, cursor):
+        """a deezer ARL per profile, stored as a fernet token like the navidrome
+        password. a profile without one keeps using the global ARL."""
+        try:
+            cursor.execute("ALTER TABLE profiles ADD COLUMN deezer_arl TEXT DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+    def set_profile_deezer_arl(self, profile_id: int, arl: Optional[str]) -> bool:
+        """save (or with an empty value clear) a profile's own Deezer ARL."""
+        try:
+            from core.settings import config_manager
+            arl = (arl or '').strip()
+            token = config_manager._encrypt_value(arl) if arl else None
+            if arl and not token:
+                return False
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE profiles SET deezer_arl = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (token, profile_id))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Error saving Deezer ARL for profile {profile_id}: {e}")
+            return False
+
+    def get_profile_deezer_arl(self, profile_id: int) -> Optional[str]:
+        """the profile's own decrypted ARL, or None (meaning: use the global one).
+        Raises on a DB error so callers can refuse rather than fall back."""
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT deezer_arl FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+        if not row or not row[0]:
+            return None
+        from core.settings import config_manager
+        arl = config_manager._decrypt_value(row[0])
+        return arl if isinstance(arl, str) and arl else None
 
     def set_profile_navidrome_login(self, profile_id: int, username: Optional[str], password: Optional[str]) -> bool:
         """save (or with empty values clear) a profile's own navidrome login."""

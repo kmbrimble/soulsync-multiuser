@@ -2136,7 +2136,15 @@ def _run_deezer_playlist_load_job(job_id, playlist_id):
                 state.update({'status': 'error', 'error': str(e), 'updated_at': time.time()})
 
 
-def _run_deezer_arl_playlist_load_job(job_id, playlist_id):
+def _deezer_dl_for_profile(profile_id=None):
+    """The ARL-backed Deezer client for a profile: its own account if it has
+    set an ARL, else the global one (see core/profile_deezer.py)."""
+    from core.profile_deezer import resolve_deezer_dl_client
+    global_client = download_orchestrator.client("deezer_dl") if download_orchestrator and hasattr(download_orchestrator, 'client') else None
+    return resolve_deezer_dl_client(global_client, profile_id)
+
+
+def _run_deezer_arl_playlist_load_job(job_id, playlist_id, profile_id=None):
     with deezer_playlist_load_lock:
         state = deezer_playlist_load_jobs.get(job_id)
         if state:
@@ -2161,7 +2169,7 @@ def _run_deezer_arl_playlist_load_job(job_id, playlist_id):
             logger.debug("deezer ARL playlist progress emit failed: %s", emit_err)
 
     try:
-        deezer_dl = download_orchestrator.client("deezer_dl") if download_orchestrator and hasattr(download_orchestrator, 'client') else None
+        deezer_dl = _deezer_dl_for_profile(profile_id)
         if not deezer_dl or not deezer_dl.is_authenticated():
             raise PermissionError("Deezer ARL not authenticated.")
         logger.info("Started async Deezer ARL playlist load for %s (job=%s)", playlist_id, job_id)
@@ -2253,7 +2261,7 @@ def _get_metadata_fallback_client():
 def get_deezer_arl_status():
     """Check if Deezer ARL is configured and authenticated."""
     try:
-        deezer_dl = download_orchestrator.client("deezer_dl") if download_orchestrator and hasattr(download_orchestrator, 'client') else None
+        deezer_dl = _deezer_dl_for_profile()
         if deezer_dl and deezer_dl.is_authenticated():
             user_data = deezer_dl._user_data or {}
             return jsonify({
@@ -2270,7 +2278,7 @@ def get_deezer_arl_status():
 def get_deezer_arl_playlists():
     """Fetch user playlists via Deezer ARL authentication (like /api/spotify/playlists)."""
     try:
-        deezer_dl = download_orchestrator.client("deezer_dl") if download_orchestrator and hasattr(download_orchestrator, 'client') else None
+        deezer_dl = _deezer_dl_for_profile()
         if not deezer_dl or not deezer_dl.is_authenticated():
             return jsonify({'error': 'Deezer ARL not authenticated. Configure your ARL token in Settings > Downloads.'}), 401
 
@@ -2320,15 +2328,18 @@ def get_deezer_arl_playlists():
 def get_deezer_arl_playlist_tracks(playlist_id):
     """Fetch full playlist with tracks via ARL (like /api/spotify/playlist/<id>)."""
     try:
-        deezer_dl = download_orchestrator.client("deezer_dl") if download_orchestrator and hasattr(download_orchestrator, 'client') else None
+        deezer_dl = _deezer_dl_for_profile()
         if not deezer_dl or not deezer_dl.is_authenticated():
             return jsonify({'error': 'Deezer ARL not authenticated.'}), 401
 
         if request.args.get('async') in ('1', 'true', 'yes'):
+            # the worker thread has no request context: capture the profile now
+            profile_id = get_current_profile_id()
             _prune_deezer_playlist_load_jobs()
             with deezer_playlist_load_lock:
                 for existing_id, existing in deezer_playlist_load_jobs.items():
                     if (existing.get('kind') == 'arl'
+                            and existing.get('profile_id') == profile_id
                             and existing.get('playlist_id') == str(playlist_id)
                             and existing.get('status') in ('queued', 'running')):
                         return jsonify({
@@ -2343,13 +2354,14 @@ def get_deezer_arl_playlist_tracks(playlist_id):
                 deezer_playlist_load_jobs[job_id] = {
                     'job_id': job_id,
                     'kind': 'arl',
+                    'profile_id': profile_id,
                     'playlist_id': str(playlist_id),
                     'status': 'queued',
                     'progress': {'playlist_id': str(playlist_id), 'done': 0, 'total': 0, 'phase': 'queued'},
                     'created_at': time.time(),
                     'updated_at': time.time(),
                 }
-            deezer_discovery_executor.submit(_run_deezer_arl_playlist_load_job, job_id, str(playlist_id))
+            deezer_discovery_executor.submit(_run_deezer_arl_playlist_load_job, job_id, str(playlist_id), profile_id)
             return jsonify({
                 "pending": True,
                 "job_id": job_id,
@@ -2539,6 +2551,9 @@ def get_deezer_playlist_load_status(job_id):
     with deezer_playlist_load_lock:
         state = deezer_playlist_load_jobs.get(job_id)
         if not state:
+            return jsonify({"error": "Deezer playlist load not found"}), 404
+        # an ARL job holds one profile's private playlist: no one else may read it
+        if state.get('kind') == 'arl' and state.get('profile_id') != get_current_profile_id():
             return jsonify({"error": "Deezer playlist load not found"}), 404
         status = state.get('status')
         payload = {

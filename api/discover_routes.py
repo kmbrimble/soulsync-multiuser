@@ -135,6 +135,15 @@ _dev_mode_enabled = None
 _is_hydrabase_active = None
 
 
+def _deezer_arl_client(profile_id=None):
+    """The authenticated ARL-backed Deezer client for a profile (its own account
+    if it set an ARL, else the global one), or None."""
+    from core.profile_deezer import resolve_deezer_dl_client
+    g = download_orchestrator.client("deezer_dl") if hasattr(download_orchestrator, 'client') else None
+    c = resolve_deezer_dl_client(g, profile_id)
+    return c if c and c.is_authenticated() else None
+
+
 def configure(**deps):
     g = globals()
     for name, value in deps.items():
@@ -2243,8 +2252,7 @@ def get_your_artists_sources():
         try:
             deezer_cl = _get_deezer_client()
             deezer_oauth = deezer_cl and hasattr(deezer_cl, 'is_user_authenticated') and deezer_cl.is_user_authenticated()
-            deezer_arl = (hasattr(download_orchestrator, 'client') and download_orchestrator.client("deezer_dl")
-                          and download_orchestrator.client("deezer_dl").is_authenticated())
+            deezer_arl = _deezer_arl_client()
             if deezer_oauth or deezer_arl:
                 connected.append('deezer')
         except Exception as e:
@@ -2365,10 +2373,9 @@ def _fetch_and_match_liked_artists(profile_id: int):
             if deezer_cl and hasattr(deezer_cl, 'is_user_authenticated') and deezer_cl.is_user_authenticated():
                 logger.info("[Your Artists] Fetching favorite artists from Deezer (OAuth)...")
                 artists = deezer_cl.get_user_favorite_artists(limit=200)
-            elif (hasattr(download_orchestrator, 'client') and download_orchestrator.client("deezer_dl")
-                  and download_orchestrator.client("deezer_dl").is_authenticated()):
+            elif (arl_client := _deezer_arl_client(profile_id)):
                 logger.info("[Your Artists] Fetching favorite artists from Deezer (ARL)...")
-                artists = download_orchestrator.client("deezer_dl").get_user_favorite_artists(limit=200)
+                artists = arl_client.get_user_favorite_artists(limit=200)
             for a in artists:
                 database.upsert_liked_artist(
                     artist_name=a['name'], source_service='deezer',
@@ -2515,8 +2522,7 @@ def get_your_albums_sources():
         try:
             deezer_cl = _get_deezer_client()
             deezer_oauth = deezer_cl and hasattr(deezer_cl, 'is_user_authenticated') and deezer_cl.is_user_authenticated()
-            deezer_arl = (hasattr(download_orchestrator, 'client') and download_orchestrator.client("deezer_dl")
-                          and download_orchestrator.client("deezer_dl").is_authenticated())
+            deezer_arl = _deezer_arl_client()
             if deezer_oauth or deezer_arl:
                 connected.append('deezer')
         except Exception as e:
@@ -2623,10 +2629,9 @@ def _fetch_liked_albums(profile_id: int):
             if deezer_cl and hasattr(deezer_cl, 'is_user_authenticated') and deezer_cl.is_user_authenticated():
                 logger.info("[Your Albums] Fetching favorite albums from Deezer (OAuth)...")
                 albums = deezer_cl.get_user_favorite_albums(limit=500)
-            elif (hasattr(download_orchestrator, 'client') and download_orchestrator.client("deezer_dl")
-                  and download_orchestrator.client("deezer_dl").is_authenticated()):
+            elif (arl_client := _deezer_arl_client(profile_id)):
                 logger.info("[Your Albums] Fetching favorite albums from Deezer (ARL)...")
-                albums = download_orchestrator.client("deezer_dl").get_user_favorite_albums(limit=500)
+                albums = arl_client.get_user_favorite_albums(limit=500)
             for a in albums:
                 database.upsert_liked_album(
                     album_name=a['album_name'], artist_name=a['artist_name'],
