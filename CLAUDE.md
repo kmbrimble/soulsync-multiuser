@@ -11,22 +11,22 @@ syncing privately to their **own Navidrome user**, plus Deezer "Loved/Favourites
 Per-profile Navidrome login already works upstream (`navidrome_client_for_profile` in
 `services/sync_service.py`) — do not re-touch it unless it regresses.
 
-Planned fork work, each a separate `/feature` run:
-1. ~~GHCR image build~~ **Done 24 Sep 2026** — `.github/workflows/fork-publish.yml`, image public at
-   `ghcr.io/kmbrimble/soulsync-multiuser`.
-2. Automation scheduler bug: `MusicDatabase.get_automations(profile_id=1)` default means
-   no-arg callers only see Admin + system automations, so K/T automations never self-schedule.
-3. Per-profile Deezer ARL: `deezer_client_for_profile()` modelled on
-   `get_tidal_client_for_profile()` (`web_server.py`) — **ARL stored on the profile row, the
-   same way per-profile Tidal tokens are** (decided 24 Sep 2026), not in the Phase-0
-   `service_credentials` tables. The main target is the ARL-backed `deezer_dl` client
-   (`core/deezer_download_client.py`), which today serves *every* profile the ARL owner's
-   playlists (private included) via `/api/deezer/arl-*` in `api/source_playlists.py`, plus
-   Discover favourites in `api/discover_routes.py`. Every `download_orchestrator.client("deezer_dl")`
-   use in a profile-scoped request needs to resolve per profile. Includes a UI to set it.
-4. Deezer Loved/Favourites: real `get_saved_tracks()` / `get_saved_tracks_count()` in
-   `core/deezer_client.py` plus a virtual playlist id, modelled on `tidal-favorites` /
-   `QOBUZ_FAVORITES_ID`.
+Fork work (each a separate `/feature` run) — all shipped and deployed 24–25 Sep 2026:
+1. GHCR image publishing — `.github/workflows/fork-publish.yml` → `ghcr.io/kmbrimble/soulsync-multiuser`.
+2. Automation scheduler: `MusicDatabase.get_all_automations()` used by engine start / event cache /
+   cycle checks / debug info; event automations run under their owner's background profile.
+3. Per-profile Deezer ARL: `profiles.deezer_arl` (Fernet), `core/profile_deezer.py::resolve_deezer_dl_client`
+   (admin/unconfigured → global; own ARL → dedicated cached client; unreadable row → None),
+   `GET/POST/DELETE /api/profiles/me/deezer-arl`, Deezer row in My Accounts. Audio downloads stay global.
+3b. Deezer playlist export uses the requesting profile's ARL; a non-admin without one is refused
+   (never writes into the global ARL owner's account).
+4. Private profiles + Loved tracks: `get_user_playlists()` lists via gw-light `deezer.pageProfile`
+   and adds Loved from `LOVEDTRACKS_ID`; `get_playlist_tracks()` falls back to gw `playlist.getSongs`.
+   The public api.deezer.com refuses private profiles even with the ARL cookie — use gw-light for
+   anything account-private.
+
+Known follow-ups (not done): pasting a `deezer.com/…/loved` URL on the Sync page (needs webui);
+`collect_known_signals` autocomplete is still admin+system only.
 
 ## Test and lint (mirror `.github/workflows/build-and-test.yml`)
 
@@ -81,6 +81,13 @@ Navidrome, Tidal or any network service — mock at the client boundary.
   `-R kmbrimble/soulsync-multiuser` to `gh run …` / `gh pr …` anyway (worktrees may not inherit it).
 - **`.gitignore` line `**/.*/` ignores new files under `.github/`.** A new workflow file must be
   `git add -f`'d, and checked with `git ls-files .github/workflows`.
+- **Connector sessions can't `cd` into `/projects/.worktrees/…`.** Use absolute paths instead:
+  `git -C <wt>`, `PYTHONPATH=<wt> /projects/soulsync-multiuser/.venv/bin/pytest -p no:cacheprovider
+  --rootdir=<wt> <wt>/tests/<file>`, `npm --prefix <wt>/webui …`.
+- **A connector turn is capped at 60 min** and CI takes 21–40 min: stop cleanly around 50 min
+  and state where you are rather than being killed mid-watch.
+- **Tests that spawn bare threads** see a different `get_database()` (thread-local, reads
+  `DATABASE_PATH`, which web_server test modules overwrite at import) — pin it in the test.
 - **Never background a wait** (`run_in_background`, `&`) in a connector-started session — the
   headless turn ends and the watch is orphaned. Run `gh run watch … --exit-status` in the
   foreground with a long timeout.
