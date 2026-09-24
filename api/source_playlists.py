@@ -2359,10 +2359,15 @@ def resolve_deezer_loved_url():
             return jsonify({'error': 'No Loved tracks playlist found on your Deezer account.'}), 404
         return jsonify({'kind': 'own', 'playlist_id': loved_id})
 
-    loved_id = _get_deezer_client().get_public_loved_playlist_id(user_id)
+    try:
+        loved_id = _get_deezer_client().get_public_loved_playlist_id(user_id)
+    except Exception as e:   # noqa: BLE001 - no client / network: same answer as unavailable
+        logger.error("Deezer public Loved lookup failed for user %s: %s", user_id, e)
+        loved_id = None
     if not loved_id:
         return jsonify({'error': "That Deezer profile's Loved tracks are private or unavailable. "
-                                 "Only public profiles can be loaded from a link."}), 404
+                                 "Only public profiles can be loaded from a link. If this is "
+                                 "your own account, connect it under My Accounts."}), 404
     return jsonify({'kind': 'public', 'playlist_id': loved_id})
 
 
