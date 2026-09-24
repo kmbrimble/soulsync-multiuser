@@ -206,9 +206,13 @@ def test_sync_playlist_tracks_use_the_profiles_client(client, db, orchestrator):
 
 def test_async_job_runs_as_the_requesting_profile(client, db, orchestrator, monkeypatch):
     import api.source_playlists as sp
+    from core import profile_deezer
     k, t = _profile(db, 'k'), _profile(db, 't')
     db.set_profile_deezer_arl(k, ARL_K)
     db.set_profile_deezer_arl(t, ARL_T)
+    # get_database() is per-thread and reads DATABASE_PATH, which every web_server test module
+    # overwrites at import time: pin the bare worker threads to this test's DB.
+    monkeypatch.setattr(profile_deezer, 'get_database', lambda: db)
     submitted = []
     monkeypatch.setattr(sp.deezer_discovery_executor, 'submit',
                         lambda fn, *a, **kw: submitted.append((fn, a, kw)))
