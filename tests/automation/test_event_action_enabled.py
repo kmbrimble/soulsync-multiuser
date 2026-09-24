@@ -17,8 +17,10 @@ class _FakeDB:
     def __init__(self, autos):
         self._autos = {a["id"]: a for a in autos}
 
-    def get_automations(self, profile_id=None):
+    def get_automations(self):
         return list(self._autos.values())
+
+    get_all_automations = get_automations
 
     def get_automation(self, aid):
         return self._autos.get(aid)

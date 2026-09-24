@@ -97,7 +97,7 @@ def test_start_catches_up_a_missed_user_automation(engine):
     """through the front door: start() schedules every enabled row"""
     eng, db = engine
     row = _row(-86400)
-    db.get_automations.return_value = [row]
+    db.get_all_automations.return_value = [row]
     db.get_automation.return_value = row
     db.get_system_automation_by_action.return_value = None
     with patch('core.automation_engine.threading.Timer') as timer_cls, \

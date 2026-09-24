@@ -35,11 +35,11 @@ def _mk(db, name, profile_id, trigger='schedule', trigger_config=None, action='s
     return aid
 
 
-def test_get_automations_none_returns_every_profile_once(db):
+def test_get_all_automations_returns_every_profile_once(db):
     a1 = _mk(db, 'admin', 1)
     a2 = _mk(db, 'k', 2)
     a3 = _mk(db, 't', 3)
-    ids = [a['id'] for a in db.get_automations(profile_id=None)]
+    ids = [a['id'] for a in db.get_all_automations()]
     assert {a1, a2, a3} <= set(ids)
     assert len(ids) == len(set(ids))
 
@@ -82,6 +82,30 @@ def test_event_cache_includes_non_admin_automations(db, engine):
     engine._rebuild_event_cache()
     assert k in engine._event_automations.get('batch_complete', [])
     assert s in engine._event_automations.get('signal:go', [])
+
+
+def test_event_triggered_non_admin_automation_runs_as_its_own_profile(db, engine):
+    seen = []
+    engine._action_handlers['scan_library'] = {
+        'handler': lambda config: seen.append(get_background_profile()) or {'status': 'completed'},
+        'guard': None,
+    }
+    engine._running = True
+    k = _mk(db, 'k event', 2, trigger='batch_complete', trigger_config={})
+    engine._run_event_automation(db.get_automation(k), k, {})
+    assert seen == [2]
+
+
+def test_create_time_cycle_check_sees_other_profiles(db):
+    t =db.create_automation('t listens x', 'signal_received', json.dumps({'signal_name': 'x'}),
+                             'scan_library', '{}', profile_id=3,
+                             then_actions=json.dumps([{'type': 'fire_signal', 'config': {'signal_name': 'y'}}]))
+    assert t
+    eng = AutomationEngine(db)
+    then = [{'type': 'fire_signal', 'config': {'signal_name': 'x'}}]
+    cycle = automation_api._check_create_cycle(
+        eng, db, 2, 'signal_received', json.dumps({'signal_name': 'y'}), json.dumps(then), then)
+    assert cycle
 
 
 def test_non_admin_automation_runs_as_its_own_profile(db, engine):

@@ -919,7 +919,7 @@ class AutomationEngine:
         self._running = True
         self._event_cache_dirty = True
         self.ensure_system_automations()
-        automations = self.db.get_automations(profile_id=None)
+        automations = self.db.get_all_automations()
         scheduled = 0
         event_count = 0
         for auto in automations:
@@ -1069,7 +1069,7 @@ class AutomationEngine:
         """Cache which automations listen to which event types."""
         new_cache = {}
         try:
-            all_autos = self.db.get_automations(profile_id=None)
+            all_autos = self.db.get_all_automations()
             for auto in all_autos:
                 if not auto.get('enabled'):
                     continue
@@ -1230,12 +1230,17 @@ class AutomationEngine:
                             self._progress_init_fn(automation_id, auto.get('name', ''), action_type)
                         except Exception as e:
                             logger.debug("event progress init: %s", e)
+                    # Act as the automation's owner, same as run_automation does.
+                    from core.profile_context import reset_background_profile, set_background_profile
+                    _bg_token = set_background_profile(auto.get('profile_id') or 1)
                     try:
                         result = handler_info['handler'](action_config) or {}
                         logger.info(f"Event automation '{auto.get('name')}' executed: {result.get('status', 'ok')}")
                     except Exception as e:
                         result = {'status': 'error', 'error': str(e)}
                         logger.error(f"Event automation '{auto.get('name')}' action failed: {e}")
+                    finally:
+                        reset_background_profile(_bg_token)
                     # Finalize progress tracking
                     if self._progress_finish_fn:
                         try:
