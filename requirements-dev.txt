@@ -6,3 +6,6 @@ ruff==0.15.12
 
 # Test runner
 pytest==9.0.3
+
+# Workflow-file tests (tests/test_fork_publish_workflow.py)
+pyyaml==6.0.3
