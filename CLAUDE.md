@@ -12,7 +12,8 @@ Per-profile Navidrome login already works upstream (`navidrome_client_for_profil
 `services/sync_service.py`) — do not re-touch it unless it regresses.
 
 Planned fork work, each a separate `/feature` run:
-1. GHCR image build for the fork (nothing publishes an image of the fork yet).
+1. ~~GHCR image build~~ **Done 24 Sep 2026** — `.github/workflows/fork-publish.yml`, image public at
+   `ghcr.io/kmbrimble/soulsync-multiuser`.
 2. Automation scheduler bug: `MusicDatabase.get_automations(profile_id=1)` default means
    no-arg callers only see Admin + system automations, so K/T automations never self-schedule.
 3. Per-profile Deezer ARL: `deezer_client_for_profile()` modelled on
@@ -38,6 +39,18 @@ worktree, create your own: `uv venv -q -p 3.11 .venv && uv pip install -q -r req
   via `pyproject.toml`; never enable them)
 - WebUI, only if `webui/` changed: `cd webui && npm ci && npm run check && npm run build && npm test`
 
+**Runtime:** the full local pytest suite is ~19.5k tests and took 36 min on this container
+(baseline at `ae77a6e`, 24 Sep 2026: 19560 passed, 9 skipped). During the Step 6 fix loop run the
+targeted test files; run the full suite once before pushing, or let the feature-branch CI run
+(~21 min for the Python job) be the full-suite gate. Never run two full suites at once
+(`pgrep -f "^python -m pytest"`).
+
+**Known baseline CI failure:** the `webui` job fails at `npm run check` on upstream code
+("Format issues found in … 102 files" at `ae77a6e`). It is pre-existing upstream formatting debt —
+not a blocker, and do not mass-reformat `webui/` (it would conflict with every upstream merge).
+Because that step fails first, CI never reaches `npm run build` / `npm test`: if a change touches
+`webui/`, run build + tests locally and only check formatting on the files you changed.
+
 Tests use pytest in `tests/`; match existing style. Tests must never hit the real Deezer,
 Navidrome, Tidal or any network service — mock at the client boundary.
 
@@ -61,6 +74,17 @@ Navidrome, Tidal or any network service — mock at the client boundary.
   unset session falls back to profile 1 (`core/profile_context.py`), which silently breaks
   per-profile attribution.
 
+## Repo gotchas
+
+- **`gh` resolves to the upstream parent by default in a fork.** `gh repo set-default
+  kmbrimble/soulsync-multiuser` has been run in the shared checkout, but always pass
+  `-R kmbrimble/soulsync-multiuser` to `gh run …` / `gh pr …` anyway (worktrees may not inherit it).
+- **`.gitignore` line `**/.*/` ignores new files under `.github/`.** A new workflow file must be
+  `git add -f`'d, and checked with `git ls-files .github/workflows`.
+- **Never background a wait** (`run_in_background`, `&`) in a connector-started session — the
+  headless turn ends and the watch is orphaned. Run `gh run watch … --exit-status` in the
+  foreground with a long timeout.
+
 ## Deploy and verify
 
 `.github/workflows/build-and-test.yml` runs on pushes to any branch **except** `main`/`dev`.
@@ -69,8 +93,10 @@ So CI must be proven on the feature branch *before* it reaches main:
 1. `git push -u origin HEAD` (feature branch), then `gh run list --branch <branch> -L 1` and
    `gh run watch <id> --exit-status`. Red CI → report and stop, do not merge.
 2. Green → `git push origin HEAD:main` (fast-forward only, never force).
-3. If a fork image-publish workflow exists (after planned feature 1), watch its run on `main`
-   to green as well.
+3. Watch `.github/workflows/fork-publish.yml` ("Fork - Build and Push Image (GHCR)") on `main`
+   to green. It publishes `ghcr.io/kmbrimble/soulsync-multiuser:latest` and `:sha-<short>`.
+   Upstream's "Build and Push Docker Image" also queues on main and skips via its repo guard —
+   that's expected.
 4. Hand back. Kieren deploys manually (unRAID template / force update). Never do it yourself.
 
 ## Changelog
