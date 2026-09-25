@@ -49,10 +49,33 @@ def test_least_privilege_and_per_branch_cancelling_concurrency(wf):
     assert conc["cancel-in-progress"] is True
 
 
+# Upstream pytest tests that are flaky on GitHub runners. This list must only ever shrink.
+EXPECTED_PYTEST_DESELECTS = [
+    # purge_old(days=1e-7) is an 8.6 ms window; races on fast runners (fork-ci run 36092811156)
+    "tests/test_audiobook_recycle.py::test_purging_forgets_the_entry_it_removed",
+]
+
+
+def _strip_deselects(run):
+    if not run:
+        return run
+    tokens = run.split()
+    kept = [t for i, t in enumerate(tokens) if t != "--deselect" and (i == 0 or tokens[i - 1] != "--deselect")]
+    return " ".join(kept)
+
+
 def test_python_job_mirrors_upstream(wf, upstream):
     ours, theirs = wf["jobs"]["sanity-check"], upstream["jobs"]["sanity-check"]
-    assert [s.get("run") for s in ours["steps"]] == [s.get("run") for s in theirs["steps"]]
+    assert [_strip_deselects(s.get("run")) for s in ours["steps"]] == \
+        [_strip_deselects(s.get("run")) for s in theirs["steps"]]
     assert "python -m pytest" in _runs(ours)
+
+
+def test_pytest_deselects_are_exactly_the_known_flaky_tests(wf):
+    step = _step_running(wf["jobs"]["sanity-check"], "python -m pytest")
+    tokens = step["run"].split()
+    deselects = [tokens[i + 1] for i, t in enumerate(tokens) if t == "--deselect"]
+    assert deselects == EXPECTED_PYTEST_DESELECTS
 
 
 def test_webui_installs_builds_and_tests(wf):
