@@ -4,6 +4,10 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-09-25 — AudioDB: use the current public API key
+- TheAudioDB retired the public v1 key `2` (every lookup 404s, flooding the log with errors);
+  the client now uses `123`, overridable with the `audiodb.api_key` setting (premium keys).
+
 ### 2026-09-25 — Navidrome playlist writes wait out a running library scan
 - `navidrome_identity._scan_stamp` re-polls `getScanStatus` every 2s for up to 45s while `scanning=true`
   (periodic `@every 1m` scans made ~18% of playlist writes fail). Unavailable/invalid state still fails at once.

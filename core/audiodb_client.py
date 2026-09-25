@@ -42,12 +42,29 @@ def rate_limited(func):
     return wrapper
 
 
+# fork: TheAudioDB retired the public v1 test key "2" (every call returns 404
+# "Not found", verified 25 Sep 2026); "123" is the current public key. A
+# premium key can be set as ``audiodb.api_key``.
+_API_ROOT = "https://www.theaudiodb.com/api/v1/json/"
+DEFAULT_API_KEY = "123"
+
+
+def _configured_api_key() -> Optional[str]:
+    try:
+        from core.settings import config_manager
+        key = str(config_manager.get("audiodb.api_key", "") or "").strip()
+    except Exception:  # noqa: BLE001 - no settings (tools/tests): use the default
+        return None
+    return key or None
+
+
 class AudioDBClient:
     """Client for interacting with TheAudioDB API"""
 
-    BASE_URL = "https://www.theaudiodb.com/api/v1/json/2"
+    BASE_URL = _API_ROOT + DEFAULT_API_KEY
 
     def __init__(self):
+        self.BASE_URL = _API_ROOT + (_configured_api_key() or DEFAULT_API_KEY)
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'SoulSync/1.0',
