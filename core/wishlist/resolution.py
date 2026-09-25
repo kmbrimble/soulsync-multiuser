@@ -40,6 +40,15 @@ def _all_profile_wishlist_tracks(wishlist_service, database=None) -> List[Dict[s
     return wishlist_tracks
 
 
+def _owner_kwargs(*sources: Any) -> Dict[str, int]:
+    """fork: ``profile_id`` kwarg for the first stamped source, else nothing (upstream default)."""
+    for src in sources:
+        pid = src.get("profile_id") if isinstance(src, dict) else None
+        if pid:
+            return {"profile_id": int(pid)}
+    return {}
+
+
 def check_and_remove_from_wishlist(context: Dict[str, Any], wishlist_service=None, database=None) -> None:
     """Check whether a successful download should be removed from the wishlist."""
     try:
@@ -56,6 +65,7 @@ def check_and_remove_from_wishlist(context: Dict[str, Any], wishlist_service=Non
         track_info = get_import_track_info(context) or get_import_search_result(context)
         search_result = get_import_original_search(context) or get_import_search_result(context)
         track_id = None
+        matched = None
 
         track_id = source_ids.get("track_id") or None
         if track_id:
@@ -68,6 +78,7 @@ def check_and_remove_from_wishlist(context: Dict[str, Any], wishlist_service=Non
                 if wishlist_track.get("wishlist_id") == wishlist_id:
                     track_id = wishlist_track.get("track_id") or wishlist_track.get("spotify_track_id") or wishlist_track.get("id")
                     logger.info("[Wishlist] Found track ID from wishlist entry: %s", track_id)
+                    matched = wishlist_track
                     break
 
         if not track_id:
@@ -82,7 +93,10 @@ def check_and_remove_from_wishlist(context: Dict[str, Any], wishlist_service=Non
                 )
 
                 wishlist_tracks = _all_profile_wishlist_tracks(wishlist_service, database=database)
+                owner = _owner_kwargs(track_info, search_result, context).get("profile_id")
                 for wishlist_track in wishlist_tracks:
+                    if owner and wishlist_track.get("profile_id") not in (None, owner):
+                        continue
                     wl_name = wishlist_track.get("name", "").lower()
                     wl_artists = wishlist_track.get("artists", [])
                     wl_artist_name = ""
@@ -94,11 +108,13 @@ def check_and_remove_from_wishlist(context: Dict[str, Any], wishlist_service=Non
                     if wl_name == track_name.lower() and wl_artist_name == artist_name.lower():
                         track_id = wishlist_track.get("track_id") or wishlist_track.get("spotify_track_id") or wishlist_track.get("id")
                         logger.info("[Wishlist] Found fuzzy match - track ID: %s", track_id)
+                        matched = wishlist_track
                         break
 
         if track_id:
             logger.info("[Wishlist] Attempting to remove track from wishlist: %s", track_id)
-            removed = wishlist_service.mark_track_download_result(track_id, success=True)
+            removed = wishlist_service.mark_track_download_result(
+                track_id, success=True, **_owner_kwargs(track_info, search_result, context, matched))
             if removed:
                 logger.info("[Wishlist] Successfully removed track from wishlist: %s", track_id)
             else:
@@ -124,7 +140,8 @@ def check_and_remove_track_from_wishlist_by_metadata(
         logger.info("[Analysis] Checking if track should be removed from wishlist: '%s' (ID: %s)", track_name, track_id)
 
         if track_id:
-            removed = wishlist_service.mark_track_download_result(track_id, success=True)
+            removed = wishlist_service.mark_track_download_result(
+                track_id, success=True, **_owner_kwargs(track_data))
             if removed:
                 logger.info("[Analysis] Removed track from wishlist via direct ID match: %s", track_id)
                 return True
@@ -157,7 +174,9 @@ def check_and_remove_track_from_wishlist_by_metadata(
                             or wishlist_track.get("id")
                         )
                         if spotify_track_id:
-                            removed = wishlist_service.mark_track_download_result(spotify_track_id, success=True)
+                            removed = wishlist_service.mark_track_download_result(
+                                spotify_track_id, success=True,
+                                **_owner_kwargs(track_data, wishlist_track))
                             if removed:
                                 logger.info("[Analysis] Removed track from wishlist via fuzzy match: %s", spotify_track_id)
                                 return True

@@ -4,6 +4,24 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-09-25 — Route every download to the owning profile's library folder
+- Bug: the Auto-Process Wishlist automation merged all profiles' wishlist tracks into one batch
+  owned by profile 1, so K's/T's wishlist downloads went to the shared transfer folder instead of
+  `<share root>/<prefix>`. Fix: `get_wishlist_tracks_for_download` stamps `profile_id` on each track;
+  the auto run splits into per-profile batches (`profile_id` = owner) via `dataclasses.replace(runtime, …)`.
+- `sanitize_and_dedupe_wishlist_tracks` / `filter_wishlist_tracks_by_category` dedupe on
+  (profile_id, track id), so the same track wanted by two profiles is downloaded for each. Unstamped
+  tracks dedupe exactly as before.
+- Wishlist completion (`check_and_remove_from_wishlist`, `…_by_metadata`) and the post-DB-update
+  cleanup mark the entry done for the owning profile (previously always profile 1). The kwarg is only
+  passed when a track is stamped, so unstamped callers behave as upstream.
+- Library "redownload" batches now carry the requesting profile's id.
+- Audit (batch creation carries `profile_id`): manual wishlist (`start_manual_wishlist_download_batch`:
+  `make_wishlist_batch_row(profile_id=runtime.profile_id)`, tracks from that profile only), `web_server.py` download-missing/playlist
+  batches (`get_current_profile_id()`), `organize_download` (defaults to current/background profile).
+  Not music-library batches, left alone: audiobook, podcast, direct-download.
+- Admin (profile 1) and profiles without a folder/own library: same root, same behaviour.
+
 ### 2026-09-25 — Per-profile music folder for downloads and playlist matching
 - A profile with `library_path_prefix` (K=`KMusic`, T=`TMusic`) now matches playlist tracks only
   against tracks whose `track_library_folder.rel_path` is under its folder: a track that exists only

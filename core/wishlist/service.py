@@ -272,6 +272,8 @@ class WishlistService:
 
                 formatted_track = {
                     "wishlist_id": wishlist_track["id"],
+                    # fork: owner, so the download resolves this profile's library folder
+                    "profile_id": profile_id,
                     "track_id": track_id,
                     "track_data": track_data,
                     "track_name": track_name,

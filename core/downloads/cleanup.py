@@ -136,7 +136,9 @@ def cleanup_wishlist_after_db_update(config_manager) -> None:
             # If found in database, remove from wishlist
             if found_in_db:
                 try:
-                    removed = wishlist_service.mark_track_download_result(spotify_track_id, success=True)
+                    removed = wishlist_service.mark_track_download_result(
+                        spotify_track_id, success=True,
+                        **({'profile_id': track['profile_id']} if track.get('profile_id') else {}))
                     if removed:
                         removed_count += 1
                         logger.info(f"[Auto Cleanup] Removed track from wishlist: '{track_name}' ({spotify_track_id})")

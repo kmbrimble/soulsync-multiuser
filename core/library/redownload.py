@@ -22,6 +22,7 @@ from core.metadata.registry import (
     get_itunes_client,
     get_spotify_client,
 )
+from core.profile_context import get_current_profile_id
 from database.music_database import get_database
 
 logger = logging.getLogger(__name__)
@@ -219,6 +220,8 @@ def redownload_start(track_id):
                 'permanently_failed_tracks': [],
                 'force_download': True,
                 'auto_initiated': False,
+                # fork: download into the requesting profile's library folder
+                'profile_id': get_current_profile_id() or 1,
             }
 
             download_tasks[task_id] = {

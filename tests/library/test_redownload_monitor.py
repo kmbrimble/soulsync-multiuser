@@ -32,3 +32,22 @@ def test_manual_redownload_registers_before_worker_dispatch(monkeypatch, source)
         response = rd.redownload_start(123)
     assert response.get_json()["success"] is True
     assert events == ["registered", "submitted"]
+
+
+def test_redownload_batch_carries_the_requesting_profile(monkeypatch):
+    """fork: the replacement lands in the requesting profile's library folder."""
+    from flask import g
+    batches = {}
+    monkeypatch.setattr(rd, "download_batches", batches)
+    monkeypatch.setattr(rd, "download_tasks", {})
+    database = Mock()
+    database._get_connection.return_value.cursor.return_value.fetchone.return_value = None
+    monkeypatch.setattr(rd, "get_database", lambda: database)
+    monkeypatch.setattr(rd, "download_monitor", Mock())
+    monkeypatch.setattr(rd, "missing_download_executor", Mock())
+    app = Flask(__name__)
+    with app.test_request_context(json={"metadata": {"name": "Song", "artist": "Artist"},
+                                       "candidate": {"username": "soulseek", "filename": "song.m4a"}}):
+        g.profile_id = 2
+        rd.redownload_start(123)
+    assert batches["redownload_batch_123"]["profile_id"] == 2

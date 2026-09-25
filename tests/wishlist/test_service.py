@@ -177,6 +177,7 @@ def test_get_wishlist_tracks_for_download_formats_modal_shape():
     assert formatted_tracks == [
         {
             "wishlist_id": "wl-1",
+            "profile_id": 7,
             "track_id": "sp-1",
             "spotify_track_id": "sp-1",
             "track_data": {

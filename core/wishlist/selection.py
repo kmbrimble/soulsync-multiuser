@@ -26,13 +26,17 @@ def sanitize_and_dedupe_wishlist_tracks(
             or sanitized_track.get('id')
         )
 
-        if spotify_track_id and spotify_track_id in seen_track_ids:
+        # fork: the same track wanted by two profiles is two downloads (each
+        # profile gets its own copy in its own folder)
+        dedupe_key = (sanitized_track.get('profile_id'), spotify_track_id)
+
+        if spotify_track_id and dedupe_key in seen_track_ids:
             duplicates_found += 1
             continue
 
         sanitized_tracks.append(sanitized_track)
         if spotify_track_id:
-            seen_track_ids.add(spotify_track_id)
+            seen_track_ids.add(dedupe_key)
 
     return sanitized_tracks, duplicates_found
 
@@ -54,9 +58,10 @@ def filter_wishlist_tracks_by_category(
             continue
 
         if spotify_track_id:
-            if spotify_track_id in seen_track_ids:
+            dedupe_key = (track.get('profile_id'), spotify_track_id)
+            if dedupe_key in seen_track_ids:
                 continue
-            seen_track_ids.add(spotify_track_id)
+            seen_track_ids.add(dedupe_key)
 
         filtered_tracks.append(track)
 

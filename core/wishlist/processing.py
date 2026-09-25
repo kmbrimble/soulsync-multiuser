@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import threading
 import uuid
 from dataclasses import dataclass
@@ -988,7 +989,11 @@ def process_wishlist_automatically(runtime: WishlistAutoProcessingRuntime, autom
                 # Get wishlist tracks for processing - combine all profiles
                 raw_wishlist_tracks = []
                 for profile in all_profiles:
-                    raw_wishlist_tracks.extend(wishlist_service.get_wishlist_tracks_for_download(profile_id=profile['id']))
+                    # fork: stamp the owner so each download lands in that profile's library folder
+                    raw_wishlist_tracks.extend(
+                        {**t, 'profile_id': profile['id']}
+                        for t in wishlist_service.get_wishlist_tracks_for_download(profile_id=profile['id'])
+                    )
                 if not raw_wishlist_tracks:
                     logger.warning("No tracks returned from wishlist service.")
                     return
@@ -1111,14 +1116,23 @@ def process_wishlist_automatically(runtime: WishlistAutoProcessingRuntime, autom
                 # once-per-run cycle toggle on it) and hand off to the SHARED
                 # wishlist engine — the same code path the manual trigger uses.
                 wishlist_run_id = str(uuid.uuid4())
-                _cycle_result = _run_wishlist_cycle(
-                    runtime,
-                    playlist_id=playlist_id,
-                    cycle=current_cycle,
-                    tracks=wishlist_tracks,
-                    run_id=wishlist_run_id,
-                    auto_initiated=True,
-                )
+                # fork: one set of batches per owning profile, so each batch
+                # (and every task in it) resolves that profile's library folder
+                _cycle_result = {'album_batches': 0, 'residual_count': 0}
+                _by_profile: Dict[Any, list] = {}
+                for track in wishlist_tracks:
+                    _by_profile.setdefault(track.get('profile_id'), []).append(track)
+                for _pid, _profile_tracks in _by_profile.items():
+                    _res = _run_wishlist_cycle(
+                        dataclasses.replace(runtime, profile_id=_pid) if _pid else runtime,
+                        playlist_id=playlist_id,
+                        cycle=current_cycle,
+                        tracks=_profile_tracks,
+                        run_id=wishlist_run_id,
+                        auto_initiated=True,
+                    )
+                    _cycle_result['album_batches'] += _res['album_batches']
+                    _cycle_result['residual_count'] += _res['residual_count']
 
                 _summary_parts: list[str] = []
                 if _cycle_result['album_batches']:
