@@ -88,6 +88,39 @@ def test_fetch_paginates_and_maps_ids_to_relative_paths(monkeypatch):
     assert http.logins == ['http://nd:4533/auth/login']
 
 
+def _lib(sid, lib_path, path):
+    return {'id': sid, 'libraryPath': lib_path, 'path': path}
+
+
+def _fetch(songs):
+    return nfm.fetch_song_paths('http://nd', 'u', 'p', http=_FakeHttp(songs), sleep=lambda s: None)
+
+
+def test_multi_library_paths_are_relative_to_the_common_root():
+    out = _fetch([
+        _lib('s', '/music/SoulSync/organized', 'Envoi/Envoi - Changes/02 - Ghost.mp3'),
+        _lib('k', '/music/KMusic', 'Artist/Al/01.mp3'),
+        _lib('l', '/music/Lidarr', 'X/Y.mp3'),
+        _lib('t', '/music/TMusic', '/Artist/Al/02.mp3'),          # stray leading '/' must not escape the library
+    ])
+    assert out == {'s': 'SoulSync/organized/Envoi/Envoi - Changes/02 - Ghost.mp3',
+                   'k': 'KMusic/Artist/Al/01.mp3', 'l': 'Lidarr/X/Y.mp3', 't': 'TMusic/Artist/Al/02.mp3'}
+
+
+def test_single_library_output_is_unchanged():
+    # one library at /music: path already starts with the share folder, root == library path
+    assert _fetch([_lib('k', '/music', 'KMusic/A/1.mp3')]) == {'k': 'KMusic/A/1.mp3'}
+
+
+def test_multi_library_windows_separators():
+    out = _fetch([_lib('k', 'D:\\music\\KMusic', 'A\\1.mp3'), _lib('t', 'D:\\music\\TMusic', 'B\\2.mp3')])
+    assert out == {'k': 'KMusic/A/1.mp3', 't': 'TMusic/B/2.mp3'}
+
+
+def test_missing_library_path_falls_back_to_plain_path():
+    assert _fetch([{'id': 'a', 'path': '/KMusic/A/1.mp3'}]) == {'a': 'KMusic/A/1.mp3'}
+
+
 def test_fetch_retries_transient_errors():
     http = _FakeHttp(_songs(2), fail_first=2)
     assert len(nfm.fetch_song_paths('http://nd', 'u', 'p', http=http, sleep=lambda s: None)) == 2

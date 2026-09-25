@@ -127,6 +127,19 @@ def test_track_in_current_profile_folder_helper(db):
         assert db.track_in_current_profile_folder("4") is True     # admin: no scoping at all
 
 
+def test_stale_cached_track_id_is_not_accepted_for_a_folder_profile(db):
+    # after a Navidrome rescan an old id may exist nowhere (or, mapped but deleted from
+    # tracks): neither may be returned as a sync_match_cache hit for a folder-scoped profile
+    c = sqlite3.connect(str(db.database_path))
+    c.execute("INSERT INTO track_library_folder (track_id, rel_path) VALUES ('orphan', 'KMusic/x.flac')")
+    c.commit()
+    c.close()
+    k = _profile(db, "k", "KMusic")
+    with _As(k):
+        assert db.track_in_current_profile_folder("gone-after-rescan") is False
+        assert db.track_in_current_profile_folder("orphan") is False
+
+
 def test_sync_runs_as_the_playlist_owner(db, monkeypatch):
     """sync_playlist must make the owner the current profile, or the scoping above
     would read profile 1 inside the sync and match everything."""

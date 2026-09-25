@@ -4,6 +4,19 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-09-25 — Folder map works with multiple Navidrome libraries
+- Navidrome's `/api/song` `path` is relative to the song's library. `fetch_song_paths` now re-roots each
+  path at the common directory of all `libraryPath` values seen (`/music/KMusic` + `Artist/x.mp3` ->
+  `KMusic/Artist/x.mp3`; `/music/SoulSync/organized` -> `SoulSync/organized/…`). One library, or no
+  `libraryPath` (older Navidrome), gives exactly the old output.
+- Stale Navidrome ids in `sync_match_cache` (gone from `tracks`/`track_library_folder` after the library
+  sync rebuilds them) are rejected for a folder profile by the existing `track_in_current_profile_folder`
+  check; added a regression test. Until that sync runs a stale id behaves as it does for admin.
+  User-confirmed manual matches remain honoured outside the folder, as before.
+- Rollout caveat: the common root uses only libraries that have songs at refresh time. If just one library
+  is populated, paths lose the folder prefix and K/T match nothing until the next refresh — run the first
+  Database Update after all four libraries finish scanning, with the admin user assigned to all of them.
+
 ### 2026-09-25 — Route every download to the owning profile's library folder
 - Bug: the Auto-Process Wishlist automation merged all profiles' wishlist tracks into one batch
   owned by profile 1, so K's/T's wishlist downloads went to the shared transfer folder instead of

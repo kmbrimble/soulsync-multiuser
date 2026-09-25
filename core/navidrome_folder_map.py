@@ -12,6 +12,7 @@ tokens are never logged.
 
 from __future__ import annotations
 
+import posixpath
 import threading
 import time
 from typing import Callable, Dict, Optional
@@ -43,6 +44,26 @@ def _get(http, url, *, retries=RETRIES, sleep: Callable = time.sleep, **kw):
             sleep(2 ** attempt)
 
 
+def _norm(p) -> str:
+    return str(p).replace('\\', '/')
+
+
+def _relative_to_common_root(found) -> Dict[str, str]:
+    """Navidrome's ``path`` is relative to the song's library. Re-root every path
+    at the common directory of all library paths seen, so ``/music/KMusic`` +
+    ``Artist/x.mp3`` -> ``KMusic/Artist/x.mp3``. One library (root == its own
+    path) or no ``libraryPath`` (older Navidrome) leaves ``path`` as it was."""
+    libs = {lib for _, lib, _ in found if lib}
+    try:
+        root = posixpath.commonpath(libs) if len(libs) > 1 else None
+    except ValueError:      # mixed absolute/relative library paths: don't guess
+        root = None
+    out: Dict[str, str] = {}
+    for sid, lib, path in found:
+        out[sid] = posixpath.relpath(posixpath.join(lib, path), root) if root and lib else path
+    return out
+
+
 def fetch_song_paths(base_url: str, username: str, password: str, *, http=requests,
                      sleep: Callable = time.sleep) -> Dict[str, str]:
     """{navidrome song id: library-relative path} for every song, via the native API."""
@@ -54,7 +75,7 @@ def fetch_song_paths(base_url: str, username: str, password: str, *, http=reques
         raise RuntimeError("Navidrome native login returned no token")
     headers = {'X-ND-Authorization': f'Bearer {token}'}
 
-    out: Dict[str, str] = {}
+    found = []   # (id, library path or None, path); rel needs every library seen, so resolve at the end
     for page in range(MAX_PAGES):
         start = page * PAGE
         r = _get(http, f"{base}/api/song", sleep=sleep, headers=headers,
@@ -63,9 +84,10 @@ def fetch_song_paths(base_url: str, username: str, password: str, *, http=reques
         for song in rows:
             sid, path = song.get('id'), song.get('path')
             if sid and path:
-                out[str(sid)] = str(path).replace('\\', '/').lstrip('/')
+                lib = song.get('libraryPath')
+                found.append((str(sid), _norm(lib).rstrip('/') if lib else None, _norm(path).lstrip('/')))
         if len(rows) < PAGE:
-            return out
+            return _relative_to_common_root(found)
     raise RuntimeError("Navidrome song listing did not terminate")
 
 
