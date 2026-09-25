@@ -4,6 +4,12 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-09-25 — Navidrome playlist writes wait out a running library scan
+- `navidrome_identity._scan_stamp` re-polls `getScanStatus` every 2s for up to 45s while `scanning=true`
+  (periodic `@every 1m` scans made ~18% of playlist writes fail). Unavailable/invalid state still fails at once.
+- `read_inventory` starts its 60s paging deadline after the first stamp (scan wait not counted), and if a
+  scan changed the count during the read it retries the whole read once before raising.
+
 ### 2026-09-25 — Folder map works with multiple Navidrome libraries
 - Navidrome's `/api/song` `path` is relative to the song's library. `fetch_song_paths` now re-roots each
   path at the common directory of all `libraryPath` values seen (`/music/KMusic` + `Artist/x.mp3` ->

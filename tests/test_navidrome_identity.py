@@ -26,11 +26,80 @@ def test_inventory_rejects_failed_page():
         read_inventory(client, page_size=1)
 
 
-def test_inventory_rejects_scanning():
-    client = SimpleNamespace(_make_request=Mock(return_value={'status': 'ok', 'scanStatus': {'scanning': True}}))
+class _Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+    def __call__(self):
+        return self.now
+
+
+def _scan(scanning, count=2):
+    return {'scanStatus': {'scanning': scanning, 'count': count}}
+
+
+def _page(*ids):
+    return {'searchResult3': {'song': [{'id': i} for i in ids]}}
+
+
+def test_inventory_rejects_scanning_after_wait_budget():
+    clock = _Clock()
+    client = SimpleNamespace(_make_request=Mock(return_value=_scan(True)))
     with pytest.raises(IdentityError):
-        read_inventory(client)
-    assert client._make_request.call_count == 1
+        read_inventory(client, sleep=clock.sleep, clock=clock)
+    assert 44 <= clock.now <= 46
+    assert 20 <= client._make_request.call_count <= 25
+
+
+def test_inventory_waits_out_a_running_scan():
+    clock = _Clock()
+    client = SimpleNamespace(_make_request=Mock(side_effect=[
+        _scan(True), _scan(True), _scan(False), _page('a'), _page(), _scan(False)]))
+    assert set(read_inventory(client, sleep=clock.sleep, clock=clock)) == {'a'}
+    assert clock.now == 4
+
+
+def test_unavailable_scan_state_fails_without_waiting():
+    clock = _Clock()
+    client = SimpleNamespace(_make_request=Mock(return_value=None))
+    with pytest.raises(IdentityError):
+        read_inventory(client, sleep=clock.sleep, clock=clock)
+    assert clock.now == 0 and client._make_request.call_count == 1
+
+
+def test_scan_wait_is_not_counted_against_paging_deadline():
+    clock = _Clock()
+    polls = iter([True] * 20)  # 40s waiting + 60s of paging would exceed 60s if counted
+
+    def request(endpoint, params=None, **kw):
+        if endpoint == 'getScanStatus':
+            return _scan(next(polls, False))
+        clock.now += 30
+        return _page('a') if params['songOffset'] == 0 else _page()
+
+    client = SimpleNamespace(_make_request=lambda *a, **k: request(*a, **k))
+    assert set(read_inventory(client, sleep=clock.sleep, clock=clock)) == {'a'}
+
+
+def test_inventory_retried_once_when_a_scan_ran_during_the_read():
+    clock = _Clock()
+    client = SimpleNamespace(_make_request=Mock(side_effect=[
+        _scan(False, 2), _page('a'), _page(), _scan(False, 3),
+        _scan(False, 3), _page('a', 'b'), _page(), _scan(False, 3)]))
+    assert set(read_inventory(client, sleep=clock.sleep, clock=clock)) == {'a', 'b'}
+
+
+def test_inventory_aborts_if_it_changes_during_the_retry_too():
+    clock = _Clock()
+    client = SimpleNamespace(_make_request=Mock(side_effect=[
+        _scan(False, 2), _page(), _scan(False, 3),
+        _scan(False, 3), _page(), _scan(False, 4)]))
+    with pytest.raises(IdentityError):
+        read_inventory(client, sleep=clock.sleep, clock=clock)
+    assert client._make_request.call_count == 6
 
 
 def test_resolve_stale_id_by_unique_exact_path():

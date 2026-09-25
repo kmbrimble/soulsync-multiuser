@@ -19,23 +19,38 @@ def _request(client, endpoint, params=None):
     return client._make_request(endpoint, params, timeout=(3.05, 10))
 
 
-def _scan_stamp(client):
-    response = _request(client, 'getScanStatus')
-    state = (response or {}).get('scanStatus')
-    if not isinstance(state, dict) or state.get('scanning') is not False:
-        raise IdentityError('Navidrome scan state is unavailable or a scan is running')
-    return state.get('count')
+def _scan_stamp(client, sleep=time.sleep, clock=time.monotonic, wait=45, poll=2):
+    """Scan count once no scan is running; waits out a running scan for up to `wait` seconds."""
+    end = clock() + wait
+    while True:
+        state = (_request(client, 'getScanStatus') or {}).get('scanStatus')
+        scanning = state.get('scanning') if isinstance(state, dict) else None
+        if scanning is False:
+            return state.get('count')
+        if scanning is not True or clock() + poll > end:
+            raise IdentityError('Navidrome scan state is unavailable or a scan is running')
+        sleep(poll)
 
 
-def read_inventory(client, page_size=500):
-    """A fresh, complete OpenSubsonic search3 inventory; never return partial data."""
-    deadline = time.monotonic() + 60
-    before = _scan_stamp(client)
+def read_inventory(client, page_size=500, sleep=time.sleep, clock=time.monotonic):
+    """A fresh, complete OpenSubsonic search3 inventory; never return partial data.
+
+    A scan finishing mid-read invalidates the read; it is retried once.
+    """
+    for _ in range(2):
+        before = _scan_stamp(client, sleep, clock)
+        songs = _page_inventory(client, page_size, clock() + 60, clock)
+        if _scan_stamp(client, sleep, clock) == before:
+            return songs
+    raise IdentityError('Navidrome library changed while reading its inventory')
+
+
+def _page_inventory(client, page_size, deadline, clock):
     songs = {}
     offset = 0
     while offset < 1000000:
         params = dict(query='', artistCount=0, albumCount=0, songCount=page_size, songOffset=offset)
-        if time.monotonic() > deadline:
+        if clock() > deadline:
             raise IdentityError('Navidrome inventory timed out; no changes made')
         # Whole server: a selected folder must not make other live IDs look obsolete.
         response = _request(client, 'search3', params)
@@ -51,8 +66,6 @@ def read_inventory(client, page_size=500):
                 raise IdentityError('Missing or repeated song ID in Navidrome inventory')
             songs[sid] = song
         if not page:
-            if _scan_stamp(client) != before:
-                raise IdentityError('Navidrome library changed while reading its inventory')
             return songs
         # Keep paging even after a short page: servers may cap the requested size.
         offset += len(page)
