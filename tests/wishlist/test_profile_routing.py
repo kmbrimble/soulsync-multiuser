@@ -4,11 +4,21 @@ transfer folder."""
 
 from types import SimpleNamespace
 
+import pytest
+
 from core.wishlist import resolution
 from core.wishlist.processing import process_wishlist_automatically
 from core.wishlist.selection import filter_wishlist_tracks_by_category, sanitize_and_dedupe_wishlist_tracks
 from core.wishlist.service import WishlistService
 from tests.wishlist.test_automation import _build_runtime
+
+
+@pytest.fixture(autouse=True)
+def _folders(monkeypatch):
+    """profiles 2 and 3 have their own folder; 4 and 5 (and admin 1) do not."""
+    from core.imports import paths
+    monkeypatch.setattr(paths, "library_root_for_profile",
+                        lambda pid: f"/music/P{pid}" if pid in (2, 3) else None)
 
 
 def _track(tid, profile_id=None):
@@ -24,6 +34,19 @@ def test_sanitize_keeps_same_track_for_two_profiles():
     tracks, dupes = sanitize_and_dedupe_wishlist_tracks([_track("x", 2), _track("x", 3)])
     assert dupes == 0
     assert [t["profile_id"] for t in tracks] == [2, 3]
+
+
+def test_sanitize_still_merges_profiles_without_a_folder():
+    """admin + folderless profiles share one library: one download, as upstream."""
+    tracks, dupes = sanitize_and_dedupe_wishlist_tracks([_track("x", 1), _track("x", 4), _track("x", 5)])
+    assert dupes == 2
+    assert [t["profile_id"] for t in tracks] == [1]
+
+
+def test_category_filter_still_merges_profiles_without_a_folder():
+    filtered, _ = filter_wishlist_tracks_by_category(
+        [_track("x", 1), _track("x", 4)], "albums", classifier=lambda t: "albums")
+    assert len(filtered) == 1
 
 
 def test_sanitize_still_dedupes_within_one_profile_and_unstamped():

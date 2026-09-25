@@ -8,6 +8,27 @@ from core.wishlist.classification import classify_wishlist_track
 from core.wishlist.payloads import sanitize_track_data_for_processing
 
 
+def _owner_keyer() -> Callable[[dict[str, Any]], Any]:
+    """fork: dedupe owner of a track — its profile only when that profile has its own
+    output folder (it needs its own copy); None for admin/folderless profiles, which
+    share one library and keep upstream's one-download-per-track behaviour."""
+    cache: dict[Any, Any] = {}
+
+    def owner(track: dict[str, Any]) -> Any:
+        pid = track.get('profile_id')
+        if not pid:
+            return None
+        if pid not in cache:
+            try:
+                from core.imports.paths import library_root_for_profile
+                cache[pid] = pid if library_root_for_profile(pid) else None
+            except Exception:  # noqa: BLE001 - unresolvable => shared library, as upstream
+                cache[pid] = None
+        return cache[pid]
+
+    return owner
+
+
 def sanitize_and_dedupe_wishlist_tracks(
     raw_tracks: Iterable[dict[str, Any]],
     *,
@@ -15,8 +36,9 @@ def sanitize_and_dedupe_wishlist_tracks(
 ) -> tuple[list[dict[str, Any]], int]:
     """Sanitize wishlist tracks and drop duplicate track IDs."""
     sanitized_tracks: list[dict[str, Any]] = []
-    seen_track_ids: set[str] = set()
+    seen_track_ids: set[Any] = set()
     duplicates_found = 0
+    owner_of = _owner_keyer()
 
     for track in raw_tracks:
         sanitized_track = sanitizer(track)
@@ -28,7 +50,7 @@ def sanitize_and_dedupe_wishlist_tracks(
 
         # fork: the same track wanted by two profiles is two downloads (each
         # profile gets its own copy in its own folder)
-        dedupe_key = (sanitized_track.get('profile_id'), spotify_track_id)
+        dedupe_key = (owner_of(sanitized_track), spotify_track_id)
 
         if spotify_track_id and dedupe_key in seen_track_ids:
             duplicates_found += 1
@@ -49,7 +71,8 @@ def filter_wishlist_tracks_by_category(
 ) -> tuple[list[dict[str, Any]], int]:
     """Filter wishlist tracks by category and return the matches plus total count."""
     filtered_tracks: list[dict[str, Any]] = []
-    seen_track_ids: set[str] = set()
+    seen_track_ids: set[Any] = set()
+    owner_of = _owner_keyer()
 
     for track in tracks:
         track_category = classifier(track)
@@ -58,7 +81,7 @@ def filter_wishlist_tracks_by_category(
             continue
 
         if spotify_track_id:
-            dedupe_key = (track.get('profile_id'), spotify_track_id)
+            dedupe_key = (owner_of(track), spotify_track_id)
             if dedupe_key in seen_track_ids:
                 continue
             seen_track_ids.add(dedupe_key)

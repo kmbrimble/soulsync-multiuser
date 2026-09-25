@@ -10,8 +10,12 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
   `<share root>/<prefix>`. Fix: `get_wishlist_tracks_for_download` stamps `profile_id` on each track;
   the auto run splits into per-profile batches (`profile_id` = owner) via `dataclasses.replace(runtime, …)`.
 - `sanitize_and_dedupe_wishlist_tracks` / `filter_wishlist_tracks_by_category` dedupe on
-  (profile_id, track id), so the same track wanted by two profiles is downloaded for each. Unstamped
-  tracks dedupe exactly as before.
+  (owner, track id), where owner is the profile only if it has its own output folder: the same track
+  wanted by two folder profiles is downloaded for each; admin, folderless and unstamped tracks dedupe
+  exactly as before (one download into the shared library).
+- Review notes (no change): batches for non-admin folderless profiles now carry their own
+  `profile_id` (previously always 1) — matches the manual wishlist path; failed tracks re-add to the
+  owner's wishlist. `reset_wishlist_retry_backoff` is still not profile-scoped (pre-existing).
 - Wishlist completion (`check_and_remove_from_wishlist`, `…_by_metadata`) and the post-DB-update
   cleanup mark the entry done for the owning profile (previously always profile 1). The kwarg is only
   passed when a track is stamped, so unstamped callers behave as upstream.
