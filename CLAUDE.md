@@ -97,6 +97,10 @@ fork-ci also runs vitest with `--retry=2` (pinned by the spec test): upstream's 
 timing-flaky on shared runners (e.g. `sync/-ui/mirrored-tab.test.tsx` failed once, passed on rerun),
 and a deterministic failure still fails all 3 attempts. pytest gets no retries.
 
+**Before every push** run every existing test file that references a function/module you changed
+(`grep -rln "<name>" tests/`), your new tests, and `ruff check`. Each red fork-ci run emails Kieren —
+pushes must be green first time.
+
 Tests use pytest in `tests/`; match existing style. Tests must never hit the real Deezer,
 Navidrome, Tidal or any network service — mock at the client boundary.
 
