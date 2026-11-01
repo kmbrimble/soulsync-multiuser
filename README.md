@@ -615,7 +615,7 @@ Open SoulSync at `http://localhost:8008` and go to Settings.
 
 **Integrations**: Spotify, iTunes/Apple Music, Deezer, Tidal, Qobuz, YouTube, Soulseek (slskd), HiFi, Beatport, ListenBrainz, MusicBrainz, AcoustID, AudioDB, Last.fm, Genius, LRClib, music-map.com, Plex, Jellyfin, Navidrome
 
-**Stack**: Python 3.11, Flask, SQLite (WAL mode), vanilla JavaScript SPA, Chart.js
+**Stack**: Python 3.14, Flask, SQLite (WAL mode), vanilla JavaScript SPA, Chart.js
 
 **Core Components**:
 - **Matching Engine** — version-aware fuzzy matching with streaming source bypass

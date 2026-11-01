@@ -12,7 +12,7 @@ COPY webui/ ./
 RUN npm run build
 
 # Stage 1: Builder — install Python dependencies with compilation tools
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -40,7 +40,7 @@ RUN echo "yt-dlp nightly for build ${COMMIT_SHA}" && \
     pip install --no-cache-dir -U --pre "yt-dlp[default]"
 
 # Stage 2: Runtime — only runtime dependencies, no build tools
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Copy pre-built virtualenv from builder
 COPY --from=builder /opt/venv /opt/venv

@@ -55,8 +55,8 @@ container is `SoulSync` — adjust the name; profile ids K=2, T=3 — verify in 
 
 ## Test and lint (mirror `.github/workflows/build-and-test.yml`)
 
-Python venv lives at `.venv` in the shared checkout (Python 3.11, created with uv). In a
-worktree, create your own: `uv venv -q -p 3.11 .venv && uv pip install -q -r requirements-dev.txt`.
+Python venv lives at `.venv` in the shared checkout (Python 3.14, created with uv). In a
+worktree, create your own: `uv venv -q -p 3.14 .venv && uv pip install -q -r requirements-dev.txt`.
 
 - `python -m ruff check .`
 - `python -m compileall -q api core database services scripts web_server.py wsgi.py beatport_unified_scraper.py`

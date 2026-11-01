@@ -4,6 +4,15 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-11-02 — Python 3.14
+- Dockerfile (builder and runtime stages), `.tool-versions`, fork-ci and the ruff `target-version` move from
+  Python 3.11 to 3.14. `requirements.txt` / `requirements-dev.txt` are unchanged: every existing pin installs
+  and passes on 3.14, so the image keeps upstream's pins rather than "latest of everything".
+- `pyaes` and `ratelimit` have no wheels and build from sdist, so installs must not use `--only-binary`.
+- Upstream's `build-and-test.yml` and `dev-nightly.yml` still say 3.11 and are deliberately left untouched.
+- Checked on 3.14.7 with those pins: ruff and compileall clean, full pytest 19705 passed / 43 skipped, and
+  the Dockerfile image (which resolved to 3.14.10) boots under gunicorn and serves `/` and `/status`.
+
 ### 2026-09-25 — AudioDB: use the current public API key
 - TheAudioDB retired the public v1 key `2` (every lookup 404s, flooding the log with errors);
   the client now uses `123`, overridable with the `audiodb.api_key` setting (premium keys).
