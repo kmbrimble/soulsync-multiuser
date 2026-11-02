@@ -72,7 +72,7 @@ def test_text_layer_paints_pixels():
     img = _open(out)
     # centre region should now contain near-white pixels from the text
     crop = img.crop((150, 400, 450, 500))
-    assert max(crop.getdata(), key=lambda p: sum(p))[0] > 200
+    assert max(crop.get_flattened_data(), key=lambda p: sum(p))[0] > 200
 
 
 def test_bound_badge_with_no_value_is_skipped():
@@ -85,10 +85,10 @@ def test_bound_badge_with_no_value_is_skipped():
     # no 'resolution' in values → badge skipped → image stays black
     out = render_overlay(base, definition, {})
     img = _open(out)
-    assert max(sum(p) for p in img.getdata()) < 30      # essentially untouched black
+    assert max(sum(p) for p in img.get_flattened_data()) < 30      # essentially untouched black
     # with a value → the pill paints white
     out2 = render_overlay(base, definition, {"resolution": "2160p"})
-    assert max(sum(p) for p in _open(out2).getdata()) > 600
+    assert max(sum(p) for p in _open(out2).get_flattened_data()) > 600
 
 
 def test_shape_layer_solid_fill():
@@ -145,7 +145,7 @@ def test_shape_border_paints_outline():
              "fill": {"grad": False, "c1": "#000000", "a1": 1},   # black fill on black poster
              "border": {"enabled": True, "color": "#00ff00", "w": 0.01}}
     img = _open(render_overlay(base, {"layers": [layer]}, {}))
-    greens = [p for p in img.getdata() if p[1] > 150 and p[0] < 90 and p[2] < 90]
+    greens = [p for p in img.get_flattened_data() if p[1] > 150 and p[0] < 90 and p[2] < 90]
     assert len(greens) > 50                             # the green border painted
 
 
@@ -170,7 +170,7 @@ def test_hidden_layer_not_rendered():
         "type": "shape", "hidden": True, "anchor": "top-left", "x": 0, "y": 0, "w": 1, "h": 1,
         "fill": {"grad": False, "c1": "#ffffff", "a1": 1},
     }]}
-    assert max(sum(p) for p in _open(render_overlay(base, definition, {})).getdata()) < 30
+    assert max(sum(p) for p in _open(render_overlay(base, definition, {})).get_flattened_data()) < 30
 
 
 def test_rotation_changes_the_render_and_stays_valid():
@@ -197,13 +197,13 @@ def test_template_thumbnail_renders_valid_jpeg_with_sample_badges():
     assert img.format == "JPEG" and img.size == (200, 300)
     # the sample resolution badge (2160p → "4K") paints a bright pill top-right
     top_right = img.convert("RGB").crop((120, 0, 200, 60))
-    assert max(sum(p) for p in top_right.getdata()) > 500
+    assert max(sum(p) for p in top_right.get_flattened_data()) > 500
 
 
 def test_rating_stars_fill_proportional():
     from core.video.overlays.compositor import _rating_tile
     def gold(t):
-        return sum(1 for p in t.getdata() if p[0] > 200 and p[1] > 160 and p[2] < 90 and p[3] > 0)
+        return sum(1 for p in t.get_flattened_data() if p[0] > 200 and p[1] > 160 and p[2] < 90 and p[3] > 0)
     base = {"type": "rating", "field": "imdb", "stars": 5, "size": 0.06, "color": "#f5c518"}
     full = _rating_tile(dict(base), 600, 900, {"imdb": 10})
     half = _rating_tile(dict(base), 600, 900, {"imdb": 5})
@@ -259,7 +259,7 @@ def test_render_overlay_threads_logo_loader():
                         "anchor": "center", "size": 0.05, "color": "#fff"}]}
     out = _open(render_overlay(base.getvalue(), defn, {"audio_codec": "atmos"},
                                logo_loader=lambda p, n: logo.getvalue()))
-    assert any(p[0] > 150 and p[1] < 90 and p[2] < 90 for p in out.getdata())  # red logo composited
+    assert any(p[0] > 150 and p[1] < 90 and p[2] < 90 for p in out.get_flattened_data())  # red logo composited
 
 
 def test_bg_box_fixed_size_and_align():
@@ -290,7 +290,7 @@ def test_bg_box_optional_border():
     from core.video.overlays.compositor import _bg_wrap, _text_tile
     from PIL import Image
     def gold(t):
-        return sum(1 for p in t.getdata() if p[0] > 200 and 140 < p[1] < 190 and p[2] < 90 and p[3] > 200)
+        return sum(1 for p in t.get_flattened_data() if p[0] > 200 and 140 < p[1] < 190 and p[2] < 90 and p[3] > 200)
     content = Image.new("RGBA", (100, 40), (255, 255, 255, 255))
     box = {"enabled": True, "color": "#000000", "opacity": 0.6, "radius": 0.02,
            "padX": 0.02, "padY": 0.012, "line": True, "lineColor": "#e3a63b", "lineW": 0.01}
@@ -333,7 +333,7 @@ def test_badge_row_renders_in_full_composite():
              "bg": {"enabled": True, "color": "#ffffff", "opacity": 1, "radius": 0.02, "padX": 0.03, "padY": 0.02}}}
     img = _open(render_overlay(base, {"layers": [layer]}, {"resolution": "2160p"}))
     # bottom-left white pill painted
-    assert max(sum(p) for p in img.crop((0, 800, 200, 900)).getdata()) > 600
+    assert max(sum(p) for p in img.crop((0, 800, 200, 900)).get_flattened_data()) > 600
 
 
 def test_maxw_shrinks_long_text_to_fit():
@@ -362,7 +362,7 @@ def test_soft_shadow_spreads_beyond_hard():
     soft = _text_tile(dict(base, shadowBlur=0.5), 600, 900, {})
     assert soft.size[0] >= hard.size[0] and soft.size[1] >= hard.size[1]   # blur reserves more room
     # soft shadow has partial-alpha pixels (feathered edge); a hard shadow is binary
-    alphas = {p[3] for p in soft.getdata()}
+    alphas = {p[3] for p in soft.get_flattened_data()}
     assert any(0 < a < 255 for a in alphas)
 
 
@@ -393,12 +393,12 @@ def test_text_stroke_paints_an_outline():
              "stroke": {"enabled": True, "color": "#ff0000", "w": 0.2}}
     img = _open(render_overlay(base, {"layers": [layer]}, {}))
     crop = img.crop((200, 350, 400, 550))
-    reds = [p for p in crop.getdata() if p[0] > 150 and p[1] < 90 and p[2] < 90]
+    reds = [p for p in crop.get_flattened_data() if p[0] > 150 and p[1] < 90 and p[2] < 90]
     assert len(reds) > 20, "the red outline did not paint"
     # disabled stroke → no red
     layer["stroke"]["enabled"] = False
     img2 = _open(render_overlay(base, {"layers": [layer]}, {}))
-    reds2 = [p for p in img2.crop((200, 350, 400, 550)).getdata() if p[0] > 150 and p[1] < 90 and p[2] < 90]
+    reds2 = [p for p in img2.crop((200, 350, 400, 550)).get_flattened_data() if p[0] > 150 and p[1] < 90 and p[2] < 90]
     assert len(reds2) == 0
 
 
@@ -450,7 +450,7 @@ def test_corner_ribbon_fills_its_corner():
              "color": "#ff0000", "text": "NEW", "textColor": "#ffffff", "opacity": 1}
     img = _open(render_overlay(base, {"layers": [layer]}, {}))
     def red(box):
-        return sum(1 for p in img.crop(box).getdata() if p[0] > 150 and p[1] < 90 and p[2] < 90)
+        return sum(1 for p in img.crop(box).get_flattened_data() if p[0] > 150 and p[1] < 90 and p[2] < 90)
     p = img.getpixel((598, 1))                   # the corner tip itself is filled now
     assert p[0] > 150 and p[1] < 90 and p[2] < 90
     assert red((450, 0, 600, 150)) > 100         # top-right corner has the red flag
@@ -487,9 +487,9 @@ def test_conditional_layer_skipped_in_full_render():
              "fill": {"grad": False, "c1": "#ffffff", "a1": 1},
              "when": {"field": "resolution", "op": "eq", "value": "2160p"}}
     # 1080p title → rule fails → nothing painted (stays black)
-    assert max(sum(p) for p in _open(render_overlay(base, {"layers": [layer]}, {"resolution": "1080p"})).getdata()) < 30
+    assert max(sum(p) for p in _open(render_overlay(base, {"layers": [layer]}, {"resolution": "1080p"})).get_flattened_data()) < 30
     # 2160p title → rule passes → white paints
-    assert max(sum(p) for p in _open(render_overlay(base, {"layers": [layer]}, {"resolution": "2160p"})).getdata()) > 600
+    assert max(sum(p) for p in _open(render_overlay(base, {"layers": [layer]}, {"resolution": "2160p"})).get_flattened_data()) > 600
 
 
 def test_broken_layer_does_not_sink_the_render():

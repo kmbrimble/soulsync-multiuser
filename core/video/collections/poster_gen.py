@@ -264,7 +264,7 @@ def render_logo_poster(logo_bytes: bytes, title: str) -> Optional[bytes]:
 
     # Mean luminance of the visible pixels decides the card tone.
     small = logo.resize((min(64, logo.width), min(64, logo.height)))
-    px = list(small.getdata())
+    px = list(small.get_flattened_data())
     vis = [(r, g, b) for r, g, b, a in px if a > 40]
     lum = (sum(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in vis) / len(vis)) if vis else 255
     if lum < 96:   # dark logo → light card
