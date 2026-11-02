@@ -4,6 +4,12 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-11-02 — Gitea becomes the primary forge
+- The repo moved to Gitea; GitHub is now a read-only push mirror whose only job is building and publishing the GHCR image (`fork-publish.yml`, actions pinned by SHA, no write access).
+- CI moved to `.gitea/workflows/ci.yml` (same two jobs, excludes, retries and guards as the former `fork-ci.yml`; runs on pull requests and is the required check on `main`).
+  `tests/test_fork_ci_workflow.py` follows the file; its pinned lists and bounds are unchanged.
+- `.gitea/workflows/upstream-sync.yml` + `scripts/upstream-sync.sh`: weekly fetch of `Nezreka/SoulSync` → PR (or one "needs a human" issue when the merge conflicts).
+
 ### 2026-11-02 — webui dependencies to the latest releases (msw held at 2.x)
 - `webui/package.json` + lockfile: every dependency is at its newest release except `msw`, held at 2.15.0
   (latest 3.0.3). Includes React 19.3.1, vite 8.3.5, vitest 5.0.5, jsdom 30, TypeScript 7.0.2, @types/node 26,

@@ -53,6 +53,15 @@ container is `SoulSync` — adjust the name; profile ids K=2, T=3 — verify in 
 5. Re-sync each profile's playlists as that profile (Sync page); tracks now match in the profile's
    own folder, so only genuinely missing ones go to that profile's wishlist.
 
+## Forge (changed 2 Nov 2026)
+
+**Gitea is primary; GitHub is a read-only push mirror and must never be pushed to directly** (the mirror force-syncs and prunes refs; Gitea syncs on every push and every 10 minutes).
+Work on `https://git.kiztigs.com/kmbrimble/soulsync-multiuser` (`origin`, gt credential helper; the `upstream` remote is unchanged: `Nezreka/SoulSync` on GitHub, push disabled); use `gt`, not `gh`,
+for issues and PRs. `main` is protected: PR + both CI checks green (`CI / sanity-check (pull_request)` and `CI / webui (pull_request)`, from `.gitea/workflows/ci.yml`); butler-bot merges its own green PRs.
+GitHub has Issues, Wiki, Projects, Discussions and PRs switched off. **GitHub's only job is the image build**: `.github/workflows/fork-publish.yml` runs when the mirror delivers a push to `main` and publishes
+`ghcr.io/kmbrimble/soulsync-multiuser:latest` and `:sha-<short>` (linux/amd64); it has no write access and never commits or tags. The `.gitea/` directory is hidden-dir-ignored by `.gitignore`: new files there need `git add -f`.
+`.gitea/workflows/upstream-sync.yml` runs weekly and opens a PR (or one "needs a human" issue on conflict) for new upstream commits; see "Syncing upstream".
+
 ## Test and lint (mirror `.github/workflows/build-and-test.yml`)
 
 Python venv lives at `.venv` in the shared checkout (Python 3.14, created with uv). In a
@@ -72,7 +81,7 @@ targeted test files; run the full suite once before pushing, or let the feature-
 (~21 min for the Python job) be the full-suite gate. Never run two full suites at once
 (`pgrep -f "^python -m pytest"`).
 
-**CI is `.github/workflows/fork-ci.yml`, not upstream's `build-and-test.yml`.** Upstream's webui job
+**CI is `.gitea/workflows/ci.yml` (it was `.github/workflows/fork-ci.yml` until 2 Nov 2026; same jobs, excludes and retries), not upstream's `build-and-test.yml`.** Upstream's webui job
 runs `npm run check` over the whole tree, which fails on pre-existing upstream debt (format issues in
 ~102 files, 16 oxlint/type errors at `bfa2921`). Upstream's workflow is therefore disabled in the fork
 via `gh workflow disable 365957448 -R kmbrimble/soulsync-multiuser` (a repo setting, so the file stays
@@ -85,7 +94,7 @@ CI is the reference.
 `npm test` in fork-ci excludes (via `--exclude`) exactly these 6 files, which fail on the untouched
 upstream baseline at `bfa2921`. Remove an entry once upstream fixes it; never add one
 (`tests/test_fork_ci_workflow.py` pins the list). The last one (`import`) passes locally but failed
-deterministically in 2 of 2 GitHub-runner runs (upstream timing/env issue); the others fail locally too.
+deterministically in 2 of 2 CI runs on GitHub's runners (upstream timing/env issue); the others fail locally too.
 - `src/platform/artwork-thumb.wiring.test.ts`
 - `src/test/chat-overlay-share-fns.test.ts`
 - `src/test/chat-plain-mode.test.ts`
@@ -144,16 +153,13 @@ Navidrome, Tidal or any network service — mock at the client boundary.
 
 ## Deploy and verify
 
-`.github/workflows/fork-ci.yml` ("Fork - Compile the app and run tests") runs on pushes to any branch
-**except** `main`/`dev`. So CI must be proven on the feature branch *before* it reaches main:
+`.gitea/workflows/ci.yml` runs on pull requests (and on demand) on the Gitea runner: the Python job (~21 min or more) and the webui job. CI must be green on the PR *before* it reaches main:
 
-1. `git push -u origin HEAD` (feature branch), then `gh run list --branch <branch> -L 1` and
-   `gh run watch <id> --exit-status`. Red CI → report and stop, do not merge.
-2. Green → `git push origin HEAD:main` (fast-forward only, never force).
-3. Watch `.github/workflows/fork-publish.yml` ("Fork - Build and Push Image (GHCR)") on `main`
-   to green. It publishes `ghcr.io/kmbrimble/soulsync-multiuser:latest` and `:sha-<short>`.
-   Upstream's "Build and Push Docker Image" also queues on main and skips via its repo guard —
-   that's expected.
+1. Push the feature branch to Gitea (`git push -u origin HEAD`) and open a PR (`gt pr create -R kmbrimble/soulsync-multiuser`). Watch it with `gt pr checks <n> --watch` or `gt run list -R kmbrimble/soulsync-multiuser`. Red CI → report and stop, do not merge.
+2. Green → `gt pr merge <n> -R kmbrimble/soulsync-multiuser --squash --delete-branch --yes --no-input` (butler-bot; direct pushes to `main` are rejected).
+3. The mirror delivers `main` to GitHub within about a minute; confirm `git ls-remote https://github.com/kmbrimble/soulsync-multiuser.git refs/heads/main` equals Gitea's, then watch `fork-publish.yml` ("Fork - Build and Push Image (GHCR)") to green with
+   `gh run list -R kmbrimble/soulsync-multiuser --workflow fork-publish.yml -L 1` / `gh run watch <id> -R kmbrimble/soulsync-multiuser --exit-status` (a read on GitHub; the forge guard's `gh` warning is expected). It publishes `:latest` and `:sha-<short>`.
+   Upstream's "Build and Push Docker Image" also queues on main and skips via its repo guard — that's expected.
 4. Hand back. Kieren deploys manually (unRAID template / force update). Never do it yourself.
 
 ## Changelog
@@ -163,7 +169,9 @@ version-numbering convention is declared yet, so do not invent version numbers.
 
 ## Syncing upstream
 
-`git fetch upstream && git merge upstream/main` on a branch, full test run, then fast-forward
+`.gitea/workflows/upstream-sync.yml` (weekly, Monday 05:30 AEST, or on demand) fetches `Nezreka/SoulSync` main and, when it has new commits, merges them on a branch `upstream-sync/<sha>` and opens a PR
+(CI then applies; butler-bot merges only when green). **As of 2 Nov 2026 the fork is 1871 commits behind and 51 ahead, and a trial merge conflicts in 25 files**, so the workflow can only report it: it opens a single open
+issue "Upstream sync needs a human" instead of a PR. The manual procedure below still applies: `git fetch upstream && git merge upstream/main` on a branch, full test run, then a PR to
 main. Expect conflicts only where fork edits touched upstream files — another reason to keep
 those edits minimal. On a sync branch fork-ci's webui format/lint step diffs against `origin/main`, so
 it also checks every `webui/src` file upstream touched and can go red on upstream's own debt — expected;

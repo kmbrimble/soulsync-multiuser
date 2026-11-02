@@ -55,11 +55,21 @@ def test_least_privilege_permissions_timeout_and_concurrency(wf, job):
     assert conc["cancel-in-progress"] is True
 
 
+def _pinned_major(action):
+    """Major version of ``action`` as used in fork-publish.yml: either ``@vN`` or a full commit
+    SHA followed by a ``# vN`` comment (SHA pins are what the fork uses; the comment keeps the intent)."""
+    import re
+    m = re.search(rf"uses:\s*{re.escape(action)}@(?:v(\d+)\b|[0-9a-f]{{40}}\s+#\s*v(\d+)\b)", _text("fork-publish.yml"))
+    assert m, f"{action} is neither @vN nor @<sha> # vN"
+    return int(m.group(1) or m.group(2))
+
+
 def test_action_versions_mirror_upstream(job):
-    _step(job, "actions/checkout@v6")
-    _step(job, "docker/setup-buildx-action@v4")
-    _step(job, "docker/login-action@v4")
-    _step(job, "docker/build-push-action@v7")
+    # Same major versions as upstream's workflows; a SHA pin must say which major it is in a trailing comment.
+    for action, major in [("actions/checkout", 6), ("docker/setup-buildx-action", 4),
+                          ("docker/login-action", 4), ("docker/build-push-action", 7)]:
+        assert _pinned_major(action) == major, action
+        _step(job, f"{action}@")
     assert not any("qemu" in s.get("uses", "") for s in job["steps"])
 
 

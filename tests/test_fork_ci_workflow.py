@@ -1,16 +1,21 @@
-"""Spec for the fork-only CI workflow that replaces upstream's build-and-test.yml on the fork."""
+"""Spec for the fork-only CI workflow that replaces upstream's build-and-test.yml on the fork.
+
+The fork CI lives in .gitea/workflows/ci.yml (the repo is Gitea-primary; GitHub is a push mirror that only builds the image).
+Upstream's own workflow is still read from .github/workflows/ for the parity checks."""
 from pathlib import Path
 
 import pytest
 import yaml
 
-WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOWS = ROOT / ".github" / "workflows"      # upstream's build-and-test.yml
+FORK_WORKFLOWS = ROOT / ".gitea" / "workflows"  # the fork's CI
 FORK_REPO = "kmbrimble/soulsync-multiuser"
 
 
 @pytest.fixture(scope="module")
 def wf():
-    return yaml.safe_load((WORKFLOWS / "fork-ci.yml").read_text(encoding="utf-8"))
+    return yaml.safe_load((FORK_WORKFLOWS / "ci.yml").read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
@@ -28,11 +33,12 @@ def _step_running(job, needle):
     return matches[0]
 
 
-def test_triggers_match_upstream_push_all_but_main_dev(wf, upstream):
-    # PyYAML parses the bare key `on` as boolean True.
+def test_runs_on_pull_requests(wf):
+    # PyYAML parses the bare key `on` as boolean True. Upstream runs on every push to a non-main branch; on Gitea the fork CI is
+    # the required check on main, which is a pull_request context, so it runs on pull requests (and on demand).
     triggers = wf.get("on", wf.get(True))
-    assert triggers == upstream.get("on", upstream.get(True))
-    assert triggers["push"]["branches-ignore"] == ["main", "dev"]
+    assert "pull_request" in triggers
+    assert "push" not in triggers
 
 
 def test_jobs_present_and_guarded_to_fork(wf):
@@ -68,8 +74,13 @@ def _strip_deselects(run):
 
 def test_python_job_mirrors_upstream(wf, upstream):
     ours, theirs = wf["jobs"]["sanity-check"], upstream["jobs"]["sanity-check"]
-    assert [_strip_deselects(s.get("run")) for s in ours["steps"]] == \
-        [_strip_deselects(s.get("run")) for s in theirs["steps"]]
+    # Only the lint / compile / test commands must match upstream's; the environment setup differs (uv-provisioned Python 3.14
+    # on the Gitea runner instead of actions/setup-python plus pip).
+    def checks(job):
+        return [_strip_deselects(s["run"]) for s in job["steps"]
+                if any(k in s.get("run", "") for k in ("ruff", "compileall", "pytest"))]
+    assert checks(ours) == checks(theirs)
+    assert len(checks(ours)) == 3
     assert "python -m pytest" in _runs(ours)
 
 

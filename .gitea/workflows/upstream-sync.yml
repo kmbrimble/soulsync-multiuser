@@ -1,0 +1,27 @@
+name: Upstream sync
+
+# Installed from gitea-migration/stage5/upstream-sync/ (template + tested script in the unraid-ops repo). Weekly (and on demand) it fetches the upstream; if there is something new it pushes
+# upstream-sync/<sha> and opens a PR, which the repo's normal CI and branch protection then handle (butler-bot merges when green).
+# A job-token push does not start CI runs: for a repo WITH a required check, add a repo Actions secret UPSTREAM_SYNC_TOKEN (butler-bot's token, set
+# by forge-admin) so the PR's checks run. Without that secret it falls back to the job token, fine for forks that have no required check.
+
+on:
+  schedule:
+    - cron: '30 19 * * 0'   # Monday 05:30 AEST
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM_URL: https://github.com/Nezreka/SoulSync.git
+      UPSTREAM_BRANCH: main
+      BASE_BRANCH: main
+      GITEA_API: ${{ gitea.server_url }}/api/v1/repos/${{ gitea.repository }}
+      GITEA_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN || gitea.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN || gitea.token }}
+      - run: bash scripts/upstream-sync.sh

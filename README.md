@@ -2,6 +2,8 @@
   <img src="./assets/trans.png" alt="SoulSync Logo">
 </p>
 
+> Development happens on a private forge; this repository is a read-only mirror. Releases are published here.
+
 # SoulSync - Intelligent Music & Video Automation Platform
 
 **Spotify-quality music discovery for self-hosted libraries.** Automates downloads, curates playlists, monitors artists, and organizes your collection with zero manual effort.
