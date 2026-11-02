@@ -204,7 +204,8 @@ class TestEndToEnd:
     arithmetic - it was in which files the arithmetic was allowed to see."""
 
     @pytest.fixture(scope="class")
-    def files(self, tmp_path_factory):
+    @classmethod
+    def files(cls, tmp_path_factory):
         d = tmp_path_factory.mktemp("density")
         out = {}
         out["real"] = _encode(d / "real.flac", "-f", "lavfi", "-i", NOISE % 120,
@@ -397,7 +398,8 @@ class TestQuietMusicSurvives:
     """
 
     @pytest.fixture(scope="class")
-    def quiet(self, tmp_path_factory):
+    @classmethod
+    def quiet(cls, tmp_path_factory):
         if not _FFMPEG:
             pytest.skip("ffmpeg needed to build the fixtures")
         d = tmp_path_factory.mktemp("quiet")

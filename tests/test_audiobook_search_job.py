@@ -4,6 +4,7 @@ Hermetic: no Prowlarr, no slskd, no network. The search legs are patched and
 the job thread is joined rather than slept on.
 """
 
+import threading
 import time
 from unittest.mock import MagicMock, patch
 
@@ -222,6 +223,7 @@ def test_a_search_that_finds_nothing_is_not_an_error():
     assert state["complete"] is True and state["error"] == "" and state["releases"] == []
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 def test_a_dying_job_still_completes():
     # A job that never sets complete would leave the modal spinning forever.
     with _chain(), \
@@ -230,6 +232,11 @@ def test_a_dying_job_still_completes():
          patch("core.audiobook_soulseek.is_available", return_value=False):
         job_id = start(BOOK)
         state = _wait(job_id)
+        # The worker re-raises after marking the job complete (the behaviour under test). Join it so
+        # the expected unhandled-exception report lands on this test, not on the next one pytest runs.
+        for t in threading.enumerate():
+            if t.name == f"audiobook-search-{job_id[:8]}":
+                t.join(5)
     assert state["complete"] is True
 
 

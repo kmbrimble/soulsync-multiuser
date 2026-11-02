@@ -160,6 +160,14 @@ def test_the_connection_probe_uses_the_same_cookies_as_the_real_work(monkeypatch
 
 # ── the status text the user actually reads ──────────────────────────────────
 
+def _closing(value):
+    """A run_async stand-in that returns `value` and closes the coroutine it was handed."""
+    def run(coro):
+        coro.close()
+        return value
+    return run
+
+
 def test_the_settings_toast_carries_the_real_reason(monkeypatch):
     """fabian's toast said "YouTube download source not available." and nothing
     else. The source knew more than that and wasn't asked."""
@@ -180,7 +188,7 @@ def test_the_settings_toast_carries_the_real_reason(monkeypatch):
     monkeypatch.setattr(ct.config_manager, "get",
                         lambda key, default=None: 'youtube'
                         if key == 'download_source.mode' else default)
-    monkeypatch.setattr(ct, "run_async", lambda coro: False)
+    monkeypatch.setattr(ct, "run_async", _closing(False))
 
     ok, message = ct.run_service_test("soulseek", {})
 
@@ -205,7 +213,7 @@ def test_a_source_that_cannot_explain_itself_still_returns_the_generic_text(monk
     monkeypatch.setattr(ct.config_manager, "get",
                         lambda key, default=None: 'soundcloud'
                         if key == 'download_source.mode' else default)
-    monkeypatch.setattr(ct, "run_async", lambda coro: False)
+    monkeypatch.setattr(ct, "run_async", _closing(False))
 
     ok, message = ct.run_service_test("soulseek", {})
 

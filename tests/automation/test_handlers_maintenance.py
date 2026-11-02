@@ -446,6 +446,14 @@ class TestRunScript:
 # ─── search_and_download ─────────────────────────────────────────────
 
 
+def _closing(value):
+    """A run_async stand-in that returns `value` and closes the coroutine it was handed."""
+    def run(coro):
+        coro.close()
+        return value
+    return run
+
+
 class TestSearchAndDownload:
     def test_no_query_returns_error(self):
         deps = _build_deps()
@@ -462,7 +470,7 @@ class TestSearchAndDownload:
 
         deps = _build_deps(
             download_orchestrator=_Orchestrator(),
-            run_async=lambda coro: 'dl-id-123',
+            run_async=_closing('dl-id-123'),
         )
         result = auto_search_and_download(
             {'_event_data': {'query': 'Adele Hello'}}, deps,
@@ -478,7 +486,7 @@ class TestSearchAndDownload:
 
         deps = _build_deps(
             download_orchestrator=_Orchestrator(),
-            run_async=lambda coro: None,
+            run_async=_closing(None),
         )
         result = auto_search_and_download({'query': 'xyz'}, deps)
         assert result['status'] == 'not_found'
