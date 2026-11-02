@@ -4,6 +4,27 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-11-02 — Latest Python dependencies and Python 3.14 deprecation clean-up
+- `requirements*.txt`: 12 exact pins moved to the newest release (PlexAPI 4.18.3, requests 2.34.2, aiohttp 3.14.5,
+  cryptography 50.0.2, mutagen 1.48.1, Pillow 13.0.0, beautifulsoup4 4.15.0, websocket-client 1.9.2,
+  flask-socketio 5.7.1, gunicorn 26.2.0, ruff 0.17.3, pytest 9.2.0). `spotipyFree<2` is kept. `python-dateutil`
+  stays at 2.9.0.post0 because `tidalapi 0.8.11` declares `<3.0.0` (4.0.0 exists). These pins now differ from
+  upstream's, so expect `requirements*.txt` conflicts when syncing upstream: take upstream's, then re-bump.
+- sqlite3: `database/sqlite_adapters.py` registers the same datetime/date adapters Python used implicitly
+  (`isoformat(" ")` / `isoformat()`), pinned by `tests/test_sqlite_adapters.py`. Removes ~1,400 deprecation
+  warnings from about thirty upstream call sites without touching them.
+- Pillow `Image.getdata()` (removed in Pillow 14) -> `get_flattened_data()` in `core/video/collections/poster_gen.py`.
+- `database/music_database.py`: no longer truth-tests an `xml.etree` Element (Plex's `_data`); only Jellyfin's dict is read.
+- `datetime.utcnow()` / `utcfromtimestamp()` replaced by the equivalent naive-UTC expressions (`api/issues.py`,
+  `web_server.py` x2, `api/database_admin.py`, `core/metadata/source.py`, one test).
+- Tests: class-scoped fixtures in `test_lossless_density_guard.py` are classmethods (pytest 10), the four
+  `run_async` stand-ins close the coroutine they are handed, and the expected thread exception in
+  `test_a_dying_job_still_completes` is joined and filtered.
+- fork-ci prints `--durations=25`; the 3.14 CI run took 39 min against 19 on 3.11, almost all of it in four
+  files that run in seconds locally. The workflow parity test ignores the flag.
+- Checked: full pytest 19712 passed / 43 skipped with no warnings (was 1,484); the eight ffmpeg-dependent test
+  files, which skip on this host, pass in a throwaway Python 3.14.10 container (140 passed, 0 skipped).
+
 ### 2026-11-02 — Python 3.14
 - Dockerfile (builder and runtime stages), `.tool-versions`, fork-ci and the ruff `target-version` move from
   Python 3.11 to 3.14. `requirements.txt` / `requirements-dev.txt` are unchanged: every existing pin installs
