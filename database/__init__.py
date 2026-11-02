@@ -18,6 +18,7 @@ Usage:
     stats = db.get_statistics()
 """
 
+from . import sqlite_adapters  # noqa: F401  (registers sqlite3 datetime/date adapters)
 from .music_database import (
     MusicDatabase,
     DatabaseArtist,
