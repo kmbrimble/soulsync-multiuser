@@ -9,118 +9,48 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SplatRouteImport } from './routes/$'
-import { Route as WishlistRouteRouteImport } from './routes/wishlist/route'
-import { Route as WatchlistRouteRouteImport } from './routes/watchlist/route'
-import { Route as ToolsRouteRouteImport } from './routes/tools/route'
-import { Route as SyncRouteRouteImport } from './routes/sync/route'
-import { Route as StatsRouteRouteImport } from './routes/stats/route'
-import { Route as SearchRouteRouteImport } from './routes/search/route'
-import { Route as PodcastsRouteRouteImport } from './routes/podcasts/route'
-import { Route as PlaylistExplorerRouteRouteImport } from './routes/playlist-explorer/route'
-import { Route as LibraryRouteRouteImport } from './routes/library/route'
-import { Route as IssuesRouteRouteImport } from './routes/issues/route'
-import { Route as ImportRouteRouteImport } from './routes/import/route'
-import { Route as DiscoverRouteRouteImport } from './routes/discover/route'
-import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
-import { Route as AutomationsRouteRouteImport } from './routes/automations/route'
-import { Route as AudiobooksRouteRouteImport } from './routes/audiobooks/route'
-import { Route as ActiveDownloadsRouteRouteImport } from './routes/active-downloads/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PodcastsIndexRouteImport } from './routes/podcasts/index'
-import { Route as ImportIndexRouteImport } from './routes/import/index'
+import { Route as SplatRouteImport } from './routes/$'
+import { Route as ActiveDownloadsRouteRouteImport } from './routes/active-downloads/route'
+import { Route as AudiobooksRouteRouteImport } from './routes/audiobooks/route'
+import { Route as AutomationsRouteRouteImport } from './routes/automations/route'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
+import { Route as DiscoverRouteRouteImport } from './routes/discover/route'
+import { Route as ImportRouteRouteImport } from './routes/import/route'
+import { Route as IssuesRouteRouteImport } from './routes/issues/route'
+import { Route as LibraryRouteRouteImport } from './routes/library/route'
+import { Route as PlaylistExplorerRouteRouteImport } from './routes/playlist-explorer/route'
+import { Route as PodcastsRouteRouteImport } from './routes/podcasts/route'
+import { Route as SearchRouteRouteImport } from './routes/search/route'
+import { Route as StatsRouteRouteImport } from './routes/stats/route'
+import { Route as SyncRouteRouteImport } from './routes/sync/route'
+import { Route as ToolsRouteRouteImport } from './routes/tools/route'
+import { Route as WatchlistRouteRouteImport } from './routes/watchlist/route'
+import { Route as WishlistRouteRouteImport } from './routes/wishlist/route'
 import { Route as AudiobooksIndexRouteImport } from './routes/audiobooks/index'
-import { Route as PodcastsPodcastIdRouteImport } from './routes/podcasts/$podcastId'
-import { Route as LabelDetailIdRouteImport } from './routes/label-detail/$id'
-import { Route as ImportSinglesRouteImport } from './routes/import/singles'
-import { Route as ImportAutoRouteImport } from './routes/import/auto'
-import { Route as ImportAlbumRouteImport } from './routes/import/album'
-import { Route as AudiobooksWishlistRouteImport } from './routes/audiobooks/wishlist'
-import { Route as AudiobooksLibraryRouteImport } from './routes/audiobooks/library'
 import { Route as AudiobooksAsinRouteImport } from './routes/audiobooks/$asin'
-import { Route as ImportMatchKeyRouteImport } from './routes/import/match.$key'
-import { Route as AudiobooksNarratorNameRouteImport } from './routes/audiobooks/narrator/$name'
-import { Route as AudiobooksAuthorNameRouteImport } from './routes/audiobooks/author/$name'
+import { Route as AudiobooksLibraryRouteImport } from './routes/audiobooks/library'
+import { Route as AudiobooksWishlistRouteImport } from './routes/audiobooks/wishlist'
+import { Route as ImportIndexRouteImport } from './routes/import/index'
+import { Route as ImportAlbumRouteImport } from './routes/import/album'
+import { Route as ImportAutoRouteImport } from './routes/import/auto'
+import { Route as ImportSinglesRouteImport } from './routes/import/singles'
+import { Route as LabelDetailIdRouteImport } from './routes/label-detail/$id'
+import { Route as PodcastsIndexRouteImport } from './routes/podcasts/index'
+import { Route as PodcastsPodcastIdRouteImport } from './routes/podcasts/$podcastId'
 import { Route as ArtistDetailSourceIdRouteImport } from './routes/artist-detail/$source/$id'
+import { Route as AudiobooksAuthorNameRouteImport } from './routes/audiobooks/author/$name'
+import { Route as AudiobooksNarratorNameRouteImport } from './routes/audiobooks/narrator/$name'
+import { Route as ImportMatchKeyRouteImport } from './routes/import/match.$key'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
   path: '/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WishlistRouteRoute = WishlistRouteRouteImport.update({
-  id: '/wishlist',
-  path: '/wishlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WatchlistRouteRoute = WatchlistRouteRouteImport.update({
-  id: '/watchlist',
-  path: '/watchlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ToolsRouteRoute = ToolsRouteRouteImport.update({
-  id: '/tools',
-  path: '/tools',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SyncRouteRoute = SyncRouteRouteImport.update({
-  id: '/sync',
-  path: '/sync',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StatsRouteRoute = StatsRouteRouteImport.update({
-  id: '/stats',
-  path: '/stats',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SearchRouteRoute = SearchRouteRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PodcastsRouteRoute = PodcastsRouteRouteImport.update({
-  id: '/podcasts',
-  path: '/podcasts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlaylistExplorerRouteRoute = PlaylistExplorerRouteRouteImport.update({
-  id: '/playlist-explorer',
-  path: '/playlist-explorer',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LibraryRouteRoute = LibraryRouteRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IssuesRouteRoute = IssuesRouteRouteImport.update({
-  id: '/issues',
-  path: '/issues',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ImportRouteRoute = ImportRouteRouteImport.update({
-  id: '/import',
-  path: '/import',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DiscoverRouteRoute = DiscoverRouteRouteImport.update({
-  id: '/discover',
-  path: '/discover',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRouteRoute = DashboardRouteRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AutomationsRouteRoute = AutomationsRouteRouteImport.update({
-  id: '/automations',
-  path: '/automations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AudiobooksRouteRoute = AudiobooksRouteRouteImport.update({
-  id: '/audiobooks',
-  path: '/audiobooks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ActiveDownloadsRouteRoute = ActiveDownloadsRouteRouteImport.update({
@@ -128,59 +58,84 @@ const ActiveDownloadsRouteRoute = ActiveDownloadsRouteRouteImport.update({
   path: '/active-downloads',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AudiobooksRouteRoute = AudiobooksRouteRouteImport.update({
+  id: '/audiobooks',
+  path: '/audiobooks',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PodcastsIndexRoute = PodcastsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PodcastsRouteRoute,
+const AutomationsRouteRoute = AutomationsRouteRouteImport.update({
+  id: '/automations',
+  path: '/automations',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ImportIndexRoute = ImportIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ImportRouteRoute,
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverRouteRoute = DiscoverRouteRouteImport.update({
+  id: '/discover',
+  path: '/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImportRouteRoute = ImportRouteRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IssuesRouteRoute = IssuesRouteRouteImport.update({
+  id: '/issues',
+  path: '/issues',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRouteRoute = LibraryRouteRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaylistExplorerRouteRoute = PlaylistExplorerRouteRouteImport.update({
+  id: '/playlist-explorer',
+  path: '/playlist-explorer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodcastsRouteRoute = PodcastsRouteRouteImport.update({
+  id: '/podcasts',
+  path: '/podcasts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRouteRoute = SearchRouteRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatsRouteRoute = StatsRouteRouteImport.update({
+  id: '/stats',
+  path: '/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SyncRouteRoute = SyncRouteRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsRouteRoute = ToolsRouteRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WatchlistRouteRoute = WatchlistRouteRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WishlistRouteRoute = WishlistRouteRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AudiobooksIndexRoute = AudiobooksIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AudiobooksRouteRoute,
-} as any)
-const PodcastsPodcastIdRoute = PodcastsPodcastIdRouteImport.update({
-  id: '/$podcastId',
-  path: '/$podcastId',
-  getParentRoute: () => PodcastsRouteRoute,
-} as any)
-const LabelDetailIdRoute = LabelDetailIdRouteImport.update({
-  id: '/label-detail/$id',
-  path: '/label-detail/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ImportSinglesRoute = ImportSinglesRouteImport.update({
-  id: '/singles',
-  path: '/singles',
-  getParentRoute: () => ImportRouteRoute,
-} as any)
-const ImportAutoRoute = ImportAutoRouteImport.update({
-  id: '/auto',
-  path: '/auto',
-  getParentRoute: () => ImportRouteRoute,
-} as any)
-const ImportAlbumRoute = ImportAlbumRouteImport.update({
-  id: '/album',
-  path: '/album',
-  getParentRoute: () => ImportRouteRoute,
-} as any)
-const AudiobooksWishlistRoute = AudiobooksWishlistRouteImport.update({
-  id: '/wishlist',
-  path: '/wishlist',
-  getParentRoute: () => AudiobooksRouteRoute,
-} as any)
-const AudiobooksLibraryRoute = AudiobooksLibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
   getParentRoute: () => AudiobooksRouteRoute,
 } as any)
 const AudiobooksAsinRoute = AudiobooksAsinRouteImport.update({
@@ -188,25 +143,70 @@ const AudiobooksAsinRoute = AudiobooksAsinRouteImport.update({
   path: '/$asin',
   getParentRoute: () => AudiobooksRouteRoute,
 } as any)
-const ImportMatchKeyRoute = ImportMatchKeyRouteImport.update({
-  id: '/match/$key',
-  path: '/match/$key',
+const AudiobooksLibraryRoute = AudiobooksLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AudiobooksRouteRoute,
+} as any)
+const AudiobooksWishlistRoute = AudiobooksWishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => AudiobooksRouteRoute,
+} as any)
+const ImportIndexRoute = ImportIndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => ImportRouteRoute,
 } as any)
-const AudiobooksNarratorNameRoute = AudiobooksNarratorNameRouteImport.update({
-  id: '/narrator/$name',
-  path: '/narrator/$name',
-  getParentRoute: () => AudiobooksRouteRoute,
+const ImportAlbumRoute = ImportAlbumRouteImport.update({
+  id: '/album',
+  path: '/album',
+  getParentRoute: () => ImportRouteRoute,
+} as any)
+const ImportAutoRoute = ImportAutoRouteImport.update({
+  id: '/auto',
+  path: '/auto',
+  getParentRoute: () => ImportRouteRoute,
+} as any)
+const ImportSinglesRoute = ImportSinglesRouteImport.update({
+  id: '/singles',
+  path: '/singles',
+  getParentRoute: () => ImportRouteRoute,
+} as any)
+const LabelDetailIdRoute = LabelDetailIdRouteImport.update({
+  id: '/label-detail/$id',
+  path: '/label-detail/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodcastsIndexRoute = PodcastsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PodcastsRouteRoute,
+} as any)
+const PodcastsPodcastIdRoute = PodcastsPodcastIdRouteImport.update({
+  id: '/$podcastId',
+  path: '/$podcastId',
+  getParentRoute: () => PodcastsRouteRoute,
+} as any)
+const ArtistDetailSourceIdRoute = ArtistDetailSourceIdRouteImport.update({
+  id: '/artist-detail/$source/$id',
+  path: '/artist-detail/$source/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AudiobooksAuthorNameRoute = AudiobooksAuthorNameRouteImport.update({
   id: '/author/$name',
   path: '/author/$name',
   getParentRoute: () => AudiobooksRouteRoute,
 } as any)
-const ArtistDetailSourceIdRoute = ArtistDetailSourceIdRouteImport.update({
-  id: '/artist-detail/$source/$id',
-  path: '/artist-detail/$source/$id',
-  getParentRoute: () => rootRouteImport,
+const AudiobooksNarratorNameRoute = AudiobooksNarratorNameRouteImport.update({
+  id: '/narrator/$name',
+  path: '/narrator/$name',
+  getParentRoute: () => AudiobooksRouteRoute,
+} as any)
+const ImportMatchKeyRoute = ImportMatchKeyRouteImport.update({
+  id: '/match/$key',
+  path: '/match/$key',
+  getParentRoute: () => ImportRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -442,116 +442,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$': {
       id: '/$'
       path: '/$'
       fullPath: '/$'
       preLoaderRoute: typeof SplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/wishlist': {
-      id: '/wishlist'
-      path: '/wishlist'
-      fullPath: '/wishlist'
-      preLoaderRoute: typeof WishlistRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/watchlist': {
-      id: '/watchlist'
-      path: '/watchlist'
-      fullPath: '/watchlist'
-      preLoaderRoute: typeof WatchlistRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tools': {
-      id: '/tools'
-      path: '/tools'
-      fullPath: '/tools'
-      preLoaderRoute: typeof ToolsRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sync': {
-      id: '/sync'
-      path: '/sync'
-      fullPath: '/sync'
-      preLoaderRoute: typeof SyncRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stats': {
-      id: '/stats'
-      path: '/stats'
-      fullPath: '/stats'
-      preLoaderRoute: typeof StatsRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/podcasts': {
-      id: '/podcasts'
-      path: '/podcasts'
-      fullPath: '/podcasts'
-      preLoaderRoute: typeof PodcastsRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/playlist-explorer': {
-      id: '/playlist-explorer'
-      path: '/playlist-explorer'
-      fullPath: '/playlist-explorer'
-      preLoaderRoute: typeof PlaylistExplorerRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/library': {
-      id: '/library'
-      path: '/library'
-      fullPath: '/library'
-      preLoaderRoute: typeof LibraryRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/issues': {
-      id: '/issues'
-      path: '/issues'
-      fullPath: '/issues'
-      preLoaderRoute: typeof IssuesRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/import': {
-      id: '/import'
-      path: '/import'
-      fullPath: '/import'
-      preLoaderRoute: typeof ImportRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/discover': {
-      id: '/discover'
-      path: '/discover'
-      fullPath: '/discover'
-      preLoaderRoute: typeof DiscoverRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/automations': {
-      id: '/automations'
-      path: '/automations'
-      fullPath: '/automations'
-      preLoaderRoute: typeof AutomationsRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/audiobooks': {
-      id: '/audiobooks'
-      path: '/audiobooks'
-      fullPath: '/audiobooks'
-      preLoaderRoute: typeof AudiobooksRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/active-downloads': {
@@ -561,81 +463,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ActiveDownloadsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/audiobooks': {
+      id: '/audiobooks'
+      path: '/audiobooks'
+      fullPath: '/audiobooks'
+      preLoaderRoute: typeof AudiobooksRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/podcasts/': {
-      id: '/podcasts/'
-      path: '/'
-      fullPath: '/podcasts/'
-      preLoaderRoute: typeof PodcastsIndexRouteImport
-      parentRoute: typeof PodcastsRouteRoute
+    '/automations': {
+      id: '/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof AutomationsRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/import/': {
-      id: '/import/'
-      path: '/'
-      fullPath: '/import/'
-      preLoaderRoute: typeof ImportIndexRouteImport
-      parentRoute: typeof ImportRouteRoute
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/import': {
+      id: '/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof ImportRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/issues': {
+      id: '/issues'
+      path: '/issues'
+      fullPath: '/issues'
+      preLoaderRoute: typeof IssuesRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playlist-explorer': {
+      id: '/playlist-explorer'
+      path: '/playlist-explorer'
+      fullPath: '/playlist-explorer'
+      preLoaderRoute: typeof PlaylistExplorerRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podcasts': {
+      id: '/podcasts'
+      path: '/podcasts'
+      fullPath: '/podcasts'
+      preLoaderRoute: typeof PodcastsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stats': {
+      id: '/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof StatsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sync': {
+      id: '/sync'
+      path: '/sync'
+      fullPath: '/sync'
+      preLoaderRoute: typeof SyncRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools': {
+      id: '/tools'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof ToolsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wishlist': {
+      id: '/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof WishlistRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/audiobooks/': {
       id: '/audiobooks/'
       path: '/'
       fullPath: '/audiobooks/'
       preLoaderRoute: typeof AudiobooksIndexRouteImport
-      parentRoute: typeof AudiobooksRouteRoute
-    }
-    '/podcasts/$podcastId': {
-      id: '/podcasts/$podcastId'
-      path: '/$podcastId'
-      fullPath: '/podcasts/$podcastId'
-      preLoaderRoute: typeof PodcastsPodcastIdRouteImport
-      parentRoute: typeof PodcastsRouteRoute
-    }
-    '/label-detail/$id': {
-      id: '/label-detail/$id'
-      path: '/label-detail/$id'
-      fullPath: '/label-detail/$id'
-      preLoaderRoute: typeof LabelDetailIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/import/singles': {
-      id: '/import/singles'
-      path: '/singles'
-      fullPath: '/import/singles'
-      preLoaderRoute: typeof ImportSinglesRouteImport
-      parentRoute: typeof ImportRouteRoute
-    }
-    '/import/auto': {
-      id: '/import/auto'
-      path: '/auto'
-      fullPath: '/import/auto'
-      preLoaderRoute: typeof ImportAutoRouteImport
-      parentRoute: typeof ImportRouteRoute
-    }
-    '/import/album': {
-      id: '/import/album'
-      path: '/album'
-      fullPath: '/import/album'
-      preLoaderRoute: typeof ImportAlbumRouteImport
-      parentRoute: typeof ImportRouteRoute
-    }
-    '/audiobooks/wishlist': {
-      id: '/audiobooks/wishlist'
-      path: '/wishlist'
-      fullPath: '/audiobooks/wishlist'
-      preLoaderRoute: typeof AudiobooksWishlistRouteImport
-      parentRoute: typeof AudiobooksRouteRoute
-    }
-    '/audiobooks/library': {
-      id: '/audiobooks/library'
-      path: '/library'
-      fullPath: '/audiobooks/library'
-      preLoaderRoute: typeof AudiobooksLibraryRouteImport
       parentRoute: typeof AudiobooksRouteRoute
     }
     '/audiobooks/$asin': {
@@ -645,19 +582,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AudiobooksAsinRouteImport
       parentRoute: typeof AudiobooksRouteRoute
     }
-    '/import/match/$key': {
-      id: '/import/match/$key'
-      path: '/match/$key'
-      fullPath: '/import/match/$key'
-      preLoaderRoute: typeof ImportMatchKeyRouteImport
+    '/audiobooks/library': {
+      id: '/audiobooks/library'
+      path: '/library'
+      fullPath: '/audiobooks/library'
+      preLoaderRoute: typeof AudiobooksLibraryRouteImport
+      parentRoute: typeof AudiobooksRouteRoute
+    }
+    '/audiobooks/wishlist': {
+      id: '/audiobooks/wishlist'
+      path: '/wishlist'
+      fullPath: '/audiobooks/wishlist'
+      preLoaderRoute: typeof AudiobooksWishlistRouteImport
+      parentRoute: typeof AudiobooksRouteRoute
+    }
+    '/import/': {
+      id: '/import/'
+      path: '/'
+      fullPath: '/import/'
+      preLoaderRoute: typeof ImportIndexRouteImport
       parentRoute: typeof ImportRouteRoute
     }
-    '/audiobooks/narrator/$name': {
-      id: '/audiobooks/narrator/$name'
-      path: '/narrator/$name'
-      fullPath: '/audiobooks/narrator/$name'
-      preLoaderRoute: typeof AudiobooksNarratorNameRouteImport
-      parentRoute: typeof AudiobooksRouteRoute
+    '/import/album': {
+      id: '/import/album'
+      path: '/album'
+      fullPath: '/import/album'
+      preLoaderRoute: typeof ImportAlbumRouteImport
+      parentRoute: typeof ImportRouteRoute
+    }
+    '/import/auto': {
+      id: '/import/auto'
+      path: '/auto'
+      fullPath: '/import/auto'
+      preLoaderRoute: typeof ImportAutoRouteImport
+      parentRoute: typeof ImportRouteRoute
+    }
+    '/import/singles': {
+      id: '/import/singles'
+      path: '/singles'
+      fullPath: '/import/singles'
+      preLoaderRoute: typeof ImportSinglesRouteImport
+      parentRoute: typeof ImportRouteRoute
+    }
+    '/label-detail/$id': {
+      id: '/label-detail/$id'
+      path: '/label-detail/$id'
+      fullPath: '/label-detail/$id'
+      preLoaderRoute: typeof LabelDetailIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podcasts/': {
+      id: '/podcasts/'
+      path: '/'
+      fullPath: '/podcasts/'
+      preLoaderRoute: typeof PodcastsIndexRouteImport
+      parentRoute: typeof PodcastsRouteRoute
+    }
+    '/podcasts/$podcastId': {
+      id: '/podcasts/$podcastId'
+      path: '/$podcastId'
+      fullPath: '/podcasts/$podcastId'
+      preLoaderRoute: typeof PodcastsPodcastIdRouteImport
+      parentRoute: typeof PodcastsRouteRoute
+    }
+    '/artist-detail/$source/$id': {
+      id: '/artist-detail/$source/$id'
+      path: '/artist-detail/$source/$id'
+      fullPath: '/artist-detail/$source/$id'
+      preLoaderRoute: typeof ArtistDetailSourceIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/audiobooks/author/$name': {
       id: '/audiobooks/author/$name'
@@ -666,12 +659,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AudiobooksAuthorNameRouteImport
       parentRoute: typeof AudiobooksRouteRoute
     }
-    '/artist-detail/$source/$id': {
-      id: '/artist-detail/$source/$id'
-      path: '/artist-detail/$source/$id'
-      fullPath: '/artist-detail/$source/$id'
-      preLoaderRoute: typeof ArtistDetailSourceIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/audiobooks/narrator/$name': {
+      id: '/audiobooks/narrator/$name'
+      path: '/narrator/$name'
+      fullPath: '/audiobooks/narrator/$name'
+      preLoaderRoute: typeof AudiobooksNarratorNameRouteImport
+      parentRoute: typeof AudiobooksRouteRoute
+    }
+    '/import/match/$key': {
+      id: '/import/match/$key'
+      path: '/match/$key'
+      fullPath: '/import/match/$key'
+      preLoaderRoute: typeof ImportMatchKeyRouteImport
+      parentRoute: typeof ImportRouteRoute
     }
   }
 }
