@@ -51,7 +51,9 @@ jobs:
         # Deselected: upstream test that races on fast runners — purge_old(days=1e-7)
         # is an 8.6 ms window (failed on fork-ci run 36092811156, passed on re-run).
         # This list must only ever shrink; pinned by tests/test_fork_ci_workflow.py.
-        run: python -m pytest --deselect tests/test_audiobook_recycle.py::test_purging_forgets_the_entry_it_removed
+        # --durations=25 prints the slowest tests so a slow runner can be told apart from a slow test
+        # (the 3.14 run took 39 min against 19 on 3.11, almost all of it in four files); the parity test ignores it.
+        run: python -m pytest --durations=25 --deselect tests/test_audiobook_recycle.py::test_purging_forgets_the_entry_it_removed
 
   webui:
     if: github.repository == 'kmbrimble/soulsync-multiuser'

@@ -61,6 +61,8 @@ def _strip_deselects(run):
         return run
     tokens = run.split()
     kept = [t for i, t in enumerate(tokens) if t != "--deselect" and (i == 0 or tokens[i - 1] != "--deselect")]
+    # Fork-only diagnostic flag, not part of upstream's command (see fork-ci.yml).
+    kept = [t for t in kept if not t.startswith("--durations")]
     return " ".join(kept)
 
 
