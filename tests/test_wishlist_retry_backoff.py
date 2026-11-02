@@ -17,7 +17,7 @@ Under test:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -242,7 +242,7 @@ def test_manual_run_clears_the_retry_clock_on_failing_tracks(tmp_path):
     assert rows['trk1']['retry_count'] == 0
     assert rows['trk1']['last_attempted'] is None
     # ...and the track is due again on the very next scheduled cycle
-    assert is_due(rows['trk1'], datetime.utcnow()) is True
+    assert is_due(rows['trk1'], datetime.now(timezone.utc).replace(tzinfo=None)) is True
 
 
 def test_reset_only_touches_rows_that_actually_failed(tmp_path):

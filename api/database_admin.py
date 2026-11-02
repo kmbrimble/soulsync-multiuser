@@ -21,7 +21,7 @@ import shutil
 import sqlite3
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, send_file
 
@@ -1018,7 +1018,7 @@ def list_backups_endpoint():
             entry = {
                 'filename': fname,
                 'size_mb': round(stat.st_size / (1024 * 1024), 2),
-                'created': datetime.utcfromtimestamp(stat.st_mtime).isoformat()
+                'created': datetime.fromtimestamp(stat.st_mtime, timezone.utc).replace(tzinfo=None).isoformat()
             }
             # Read version from sidecar metadata if available
             meta_path = fp + '.meta.json'

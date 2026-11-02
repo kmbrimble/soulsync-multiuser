@@ -717,7 +717,7 @@ def _process_qobuz_source(pp: dict, metadata: dict, cfg, runtime, track_title: s
                         if qz_ts and isinstance(qz_ts, (int, float)) and qz_ts > 0:
                             import datetime as _dt
 
-                            qz_release = str(_dt.datetime.utcfromtimestamp(qz_ts).year)
+                            qz_release = str(_dt.datetime.fromtimestamp(qz_ts, _dt.timezone.utc).year)
                     if len(qz_release) >= 4 and qz_release[:4].isdigit():
                         pp["release_year"] = qz_release[:4]
 

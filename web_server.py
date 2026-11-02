@@ -3062,7 +3062,7 @@ def _regenerate_batch_m3u(batch, tracks):
         # Build M3U content
         import datetime as _dt
         lines = ['#EXTM3U', f'#PLAYLIST:{playlist_name}',
-                 f'#GENERATED:{_dt.datetime.utcnow().isoformat()}Z', '']
+                 f'#GENERATED:{_dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None).isoformat()}Z', '']
         found = 0
         for idx, track in enumerate(tracks):
             dur_s = int((track.get('duration_ms', 0) or 0) / 1000)
@@ -3245,7 +3245,7 @@ def generate_playlist_m3u():
         lines = [
             '#EXTM3U',
             f'#PLAYLIST:{playlist_name}',
-            f'#GENERATED:{_dt.datetime.utcnow().isoformat()}Z',
+            f'#GENERATED:{_dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None).isoformat()}Z',
             '',
         ]
 

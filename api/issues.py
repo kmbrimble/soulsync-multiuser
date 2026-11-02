@@ -183,8 +183,8 @@ def update_issue(issue_id):
         # If resolving, stamp resolved_by and resolved_at
         if data.get('status') in ('resolved', 'dismissed') and is_admin:
             data['resolved_by'] = profile_id
-            from datetime import datetime
-            data['resolved_at'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            from datetime import datetime, timezone
+            data['resolved_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         # If reopening, clear resolution metadata
         elif data.get('status') in ('open', 'in_progress') and is_admin:
             data['resolved_by'] = None

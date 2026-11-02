@@ -9718,7 +9718,11 @@ class MusicDatabase:
                 # "; " matches Jellyfin's own UI convention and lets the search
                 # path treat each name as a separate artist credit.
                 if not track_artist and hasattr(track_obj, '_data'):
-                    raw = getattr(track_obj, '_data', {}) or {}
+                    # Plex's _data is an xml Element (truth-testing one is deprecated and has
+                    # no ArtistItems); only Jellyfin/Emby's dict payload is read here.
+                    raw = getattr(track_obj, '_data', None)
+                    if not isinstance(raw, dict):
+                        raw = {}
                     artist_items = raw.get('ArtistItems', [])
                     if artist_items:
                         jf_track_artist_names = [
