@@ -4,6 +4,10 @@ Fork-only (kmbrimble/soulsync-multiuser); upstream has none.
 
 ## [Unreleased]
 
+### 2026-11-04 — Upstream sync follows releases, Monday 05:00
+- `scripts/upstream-sync.sh` gains `UPSTREAM_RELEASE=1`: it merges the tag of the upstream's latest published GitHub release instead of the tip of `main` (branch `upstream-sync/<tag>`, PR "Sync upstream <tag>"). A failed lookup fails the job; it never falls back to `main`. Default behaviour without the variable is unchanged.
+- `.gitea/workflows/upstream-sync.yml` sets it and runs at `0 19 * * 0` (UTC) = Monday 05:00 AEST (was 05:30). `tests/test_upstream_sync_script.py` pins the script and the schedule.
+
 ### 2026-11-02 — Gitea becomes the primary forge
 - The repo moved to Gitea; GitHub is now a read-only push mirror whose only job is building and publishing the GHCR image (`fork-publish.yml`, actions pinned by SHA, no write access).
 - CI moved to `.gitea/workflows/ci.yml` (same two jobs, excludes, retries and guards as the former `fork-ci.yml`; runs on pull requests and is the required check on `main`).

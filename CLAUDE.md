@@ -60,7 +60,7 @@ Work on `https://git.kiztigs.com/kmbrimble/soulsync-multiuser` (`origin`, gt cre
 for issues and PRs. `main` is protected: PR + both CI checks green (`CI / sanity-check (pull_request)` and `CI / webui (pull_request)`, from `.gitea/workflows/ci.yml`); butler-bot merges its own green PRs.
 GitHub has Issues, Wiki, Projects, Discussions and PRs switched off. **GitHub's only job is the image build**: `.github/workflows/fork-publish.yml` runs when the mirror delivers a push to `main` and publishes
 `ghcr.io/kmbrimble/soulsync-multiuser:latest` and `:sha-<short>` (linux/amd64); it has no write access and never commits or tags. The `.gitea/` directory is hidden-dir-ignored by `.gitignore`: new files there need `git add -f`.
-`.gitea/workflows/upstream-sync.yml` runs weekly and opens a PR (or one "needs a human" issue on conflict) for new upstream commits; see "Syncing upstream".
+`.gitea/workflows/upstream-sync.yml` runs weekly and opens a PR (or one "needs a human" issue on conflict) for the latest upstream release; see "Syncing upstream".
 
 ## Test and lint (mirror `.github/workflows/build-and-test.yml`)
 
@@ -169,7 +169,9 @@ version-numbering convention is declared yet, so do not invent version numbers.
 
 ## Syncing upstream
 
-`.gitea/workflows/upstream-sync.yml` (weekly, Monday 05:30 AEST, or on demand) fetches `Nezreka/SoulSync` main and, when it has new commits, merges them on a branch `upstream-sync/<sha>` and opens a PR
+`.gitea/workflows/upstream-sync.yml` (weekly, Monday 05:00 AEST = Sunday 19:00 UTC, or on demand) looks up the latest published (non-draft, non-pre-release) GitHub release of `Nezreka/SoulSync` and, when its tag
+is not yet in this fork, merges that tag on a branch `upstream-sync/<tag>` and opens a PR. Unreleased commits on upstream `main` are not merged. Gitea evaluates `cron:` in UTC unless the spec has a `TZ=` prefix, so the
+schedule is written in UTC. A failed release lookup (GitHub down, rate limit, no releases, an odd tag) fails the job rather than falling back to `main`. `scripts/upstream-sync.sh` is pinned by `tests/test_upstream_sync_script.py`.
 (CI then applies; butler-bot merges only when green). **As of 2 Nov 2026 the fork is 1871 commits behind and 51 ahead, and a trial merge conflicts in 25 files**, so the workflow can only report it: it opens a single open
 issue "Upstream sync needs a human" instead of a PR. The manual procedure below still applies: `git fetch upstream && git merge upstream/main` on a branch, full test run, then a PR to
 main. Expect conflicts only where fork edits touched upstream files — another reason to keep
