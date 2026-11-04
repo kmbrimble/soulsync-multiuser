@@ -81,7 +81,9 @@ def test_release_mode_merges_the_release_tag_not_the_branch_tip(repos):
     assert "DRY_RUN: would push upstream-sync/v1" in r.stdout
     assert git(repos["fork"], "branch", "--show-current") == "upstream-sync/v1"
     assert is_ancestor(repos, repos["c1"])
-    assert not is_ancestor(repos, repos["c2"]), "unreleased upstream commits must not ride along"
+    # Checked on the merged tree: "not an ancestor" alone also passes when the commit was never fetched (git exits 128).
+    assert (repos["fork"] / "release.txt").exists()
+    assert not (repos["fork"] / "unreleased.txt").exists(), "unreleased upstream commits must not ride along"
 
 
 def test_default_mode_still_merges_the_branch_tip(repos):
