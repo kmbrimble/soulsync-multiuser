@@ -1,13 +1,14 @@
 name: Upstream sync
 
-# Installed from gitea-migration/stage5/upstream-sync/ (template + tested script in the unraid-ops repo). Weekly (and on demand) it fetches the upstream; if there is something new it pushes
-# upstream-sync/<sha> and opens a PR, which the repo's normal CI and branch protection then handle (butler-bot merges when green).
+# Installed from gitea-migration/stage5/upstream-sync/ (template + tested script in the unraid-ops repo), then changed here to follow upstream RELEASES: UPSTREAM_RELEASE=1 makes
+# scripts/upstream-sync.sh merge the tag of Nezreka/SoulSync's latest published GitHub release rather than the tip of main. Weekly (and on demand) it looks that release up; if it is not
+# yet in this fork it pushes upstream-sync/<tag> and opens a PR, which the repo's normal CI and branch protection then handle (butler-bot merges when green).
 # A job-token push does not start CI runs: for a repo WITH a required check, add a repo Actions secret UPSTREAM_SYNC_TOKEN (butler-bot's token, set
 # by forge-admin) so the PR's checks run. Without that secret it falls back to the job token, fine for forks that have no required check.
 
 on:
   schedule:
-    - cron: '30 19 * * 0'   # Monday 05:30 AEST
+    - cron: '0 19 * * 0'   # Gitea evaluates cron in UTC unless a TZ= prefix is given: Sunday 19:00 UTC = Monday 05:00 AEST (Brisbane has no DST)
   workflow_dispatch:
 
 jobs:
@@ -16,6 +17,7 @@ jobs:
     env:
       UPSTREAM_URL: https://github.com/Nezreka/SoulSync.git
       UPSTREAM_BRANCH: main
+      UPSTREAM_RELEASE: '1'
       BASE_BRANCH: main
       GITEA_API: ${{ gitea.server_url }}/api/v1/repos/${{ gitea.repository }}
       GITEA_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN || gitea.token }}
